@@ -53,12 +53,6 @@ class pydualsense:
         return dual_sense
 
 
-    # color stuff
-    def setColor(self, r: int, g:int, b:int):
-        if r > 255 or g > 255 or b > 255:
-            raise Exception('colors have values from 0 to 255 only')
-        self.color = (r,g,b)
-
 
     # right trigger
     def setRightTriggerMode(self, mode: TriggerModes):
@@ -111,7 +105,53 @@ class pydualsense:
     def setMicrophoneLED(self, value):
         self.audio.microphone_led = value
 
-    def setPlayer(self, player : PlayerID):
+    # color stuff
+    def setColor(self, r: int, g:int, b:int):
+        """sets the led colour around the touchpad
+
+        :param r: red channel, 0..255
+        :type r: int
+        :param g: green channel, 0..255
+        :type g: int
+        :param b: blue channel, 0..255
+        :type b: int
+        :raises Exception: wron color values
+        """
+        if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
+            raise Exception('colors have values from 0 to 255 only')
+        self.color = (r,g,b)
+
+    def setLEDOption(self, option: LedOptions):
+        """set led option
+
+        :param option: led option
+        :type option: LedOptions
+        """
+        self.light.ledOption = option
+
+    def setPulseOption(self, option: PulseOptions):
+        """set the pulse option for the leds
+
+        :param option: [description]
+        :type option: PulseOptions
+        """
+        self.light.pulseOptions = option
+
+    def setBrightness(self, brightness: Brightness):
+        """set the brightness of the player leds
+
+        :param brightness: brightness for the leds
+        :type brightness: Brightness
+        """
+        self.light.brightness = brightness
+
+    def setPlayerID(self, player : PlayerID):
+        """set the player ID. The controller has 5 white LED which signals
+        which player the controller is
+
+        :param player: the player id from 1 to 5
+        :type player: PlayerID
+        """
         self.light.playerNumber = player
 
     def sendReport(self):
