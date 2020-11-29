@@ -6,8 +6,8 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pydualsense',
-    version='0.0.4',    
-    description='control your DualSense (PS5) controller with python',
+    version='0.1.0',    
+    description='use your DualSense (PS5) controller with python',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/flok/pydualsense',
