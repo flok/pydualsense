@@ -11,7 +11,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/flok/pydualsense',
-    author='Florian Kaiser',
+    author='Florian K',
     license='MIT License',
     packages=setuptools.find_packages(),
     install_requires=['hid>=1.0.4']

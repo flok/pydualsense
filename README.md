@@ -5,6 +5,13 @@ control your dualsense through python. using the hid library this module impleme
 
 - hid >= 1.0.4
 
+# install
+
+Just install the package from pypi
+
+```bash
+pip install pydualsense
+```
 # usage
 
 ```python
