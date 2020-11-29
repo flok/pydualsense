@@ -1,6 +1,6 @@
 from enum import IntFlag
 
-class LedOptions(IntFlag): 
+class LedOptions(IntFlag):
     Off=0x0,
     PlayerLedBrightness=0x1,
     UninterrumpableLed=0x2,
@@ -25,12 +25,12 @@ class PlayerID(IntFlag):
     all = 31
 
 class TriggerModes(IntFlag):
-    Off =0x0, # no resistance
-    Rigid =0x1, # continous resistance
-    Pulse =0x2, # section resistance
-    Rigid_A=0x1 | 0x20,
-    Rigid_B=0x1 | 0x04,
-    Rigid_AB=0x1 | 0x20 | 0x04,
+    Off = 0x0, # no resistance
+    Rigid = 0x1, # continous resistance
+    Pulse = 0x2, # section resistance
+    Rigid_A = 0x1 | 0x20,
+    Rigid_B = 0x1 | 0x04,
+    Rigid_AB = 0x1 | 0x20 | 0x04,
     Pulse_A = 0x2 | 0x20,
     Pulse_B = 0x2 | 0x04,
     Pulse_AB = 0x2 | 0x20 | 0x04,

@@ -5,15 +5,21 @@ import threading
 
 class pydualsense:
 
-    def __init__(self) -> None:
+    def __init__(self, verbose: bool = False) -> None:
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
+        self.verbose = verbose
+
         self.device: hid.Device = self.__find_device()
+
+
+
         self.light = DSLight() # control led light of ds
         self.audio = DSAudio()
         self.triggerL = DSTrigger()
         self.triggerR = DSTrigger()
 
         self.color = (0,0,255) # set color around touchpad to blue
+
 
         self.receive_buffer_size = 64
         self.send_report_size = 48
@@ -28,6 +34,7 @@ class pydualsense:
     def close(self):
         self.ds_thread = False
         self.report_thread.join()
+        self.device.close()
 
     def __find_device(self):
         devices = hid.enumerate(vid=0x054c)
@@ -41,10 +48,10 @@ class pydualsense:
         if len(found_devices) != 1:
             raise Exception('no dualsense controller detected')
 
-   
+
         dual_sense = hid.Device(vid=found_devices[0]['vendor_id'], pid=found_devices[0]['product_id'])
         return dual_sense
-    
+
 
     # color stuff
     def setColor(self, r: int, g:int, b:int):
@@ -102,8 +109,10 @@ class pydualsense:
     # TODO: audio
     # audio stuff
     def setMicrophoneLED(self, value):
-        self.audio.microphoneLED = value
+        self.audio.microphone_led = value
 
+    def setPlayer(self, player : PlayerID):
+        self.light.playerNumber = player
 
     def sendReport(self):
         """background thread handling the reading of the device and updating its states
@@ -112,7 +121,7 @@ class pydualsense:
 
             # read data from the input report of the controller
             inReport = self.device.read(self.receive_buffer_size)
-            
+
             # decrypt the packet and bind the inputs
             self.readInput(inReport)
 
@@ -184,10 +193,9 @@ class pydualsense:
        # print(f'2Active = {self.state.trackPadTouch1.isActive}')
        # print(f'X2: {self.state.trackPadTouch1.X} Y2: {self.state.trackPadTouch1.Y}')
        # print(f'DPAD {self.state.DpadLeft} {self.state.DpadUp} {self.state.DpadRight} {self.state.DpadDown}')
-        
+
         # TODO: implement gyrometer and accelerometer
         # TODO: control mouse with touchpad for fun as DS4Windows
-        
 
 
     def writeReport(self, outReport):
@@ -206,7 +214,7 @@ class pydualsense:
         :rtype: list
         """
         outReport = [0] * 48 # create empty list with range of output report
-        # packet type 
+        # packet type
         outReport[0] = 0x2
 
 
@@ -216,7 +224,7 @@ class pydualsense:
         # 0x04 set the right trigger motor
         # 0x08 set the left trigger motor
         # 0x10 modification of audio volume
-        # 0x20 toggling of internal speaker while headset is connected 
+        # 0x20 toggling of internal speaker while headset is connected
         # 0x40 modification of microphone volume
         outReport[1] = 0xff # [1]
 
@@ -227,11 +235,11 @@ class pydualsense:
         # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
         # 0x10 toggling white player indicator LEDs below touchpad
         # 0x20 ???
-        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers) 
+        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
         # 0x80 ???
         outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
-        
-        outReport[3]= 0 # left low freq motor 0-255 # [3]
+
+        outReport[3] = 0 # left low freq motor 0-255 # [3]
         outReport[4] = 0 # right low freq motor 0-255 # [4]
 
         # outReport[5] - outReport[8] audio related
@@ -265,7 +273,8 @@ class pydualsense:
         outReport[45] = self.color[0]
         outReport[46] = self.color[1]
         outReport[47] = self.color[2]
-
+        if self.verbose:
+            print(outReport)
         return outReport
 
 class DSTouchpad:
@@ -341,7 +350,7 @@ class DSLight:
         make it simple, no get or set functions. quick and dirty
     """
     def __init__(self) -> None:
-        self.brightness: Brightness = Brightness.low # sets 
+        self.brightness: Brightness = Brightness.low # sets
         self.playerNumber: PlayerID = PlayerID.player1
         self.ledOption : LedOptions = LedOptions.Both
         self.pulseOptions : PulseOptions = PulseOptions.Off
@@ -353,7 +362,7 @@ class DSLight:
         if player > 5:
             raise Exception('only 5 players supported. choose 1-5')
 
-        
+
 
 class DSAudio:
     def __init__(self) -> None:
