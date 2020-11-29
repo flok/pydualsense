@@ -10,6 +10,8 @@ pip install pydualsense
 ```
 # usage
 
+
+
 ```python
 
 from pydualsense import pydualsense
@@ -20,6 +22,10 @@ ds.setLeftTriggerMode(TriggerModes.Rigid)
 ds.setLeftTriggerForce(1, 255)
 ds.close() # closing the controller
 ```
+
+See ``examples`` folder for some more ideas
+
+
 # dependecies
 
 - hid >= 1.0.4
