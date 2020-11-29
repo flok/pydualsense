@@ -1,5 +1,4 @@
-from enum import Enum, IntFlag
-from flags import Flags # bitflag
+from enum import IntFlag
 
 class LedOptions(IntFlag): 
     Off=0x0,

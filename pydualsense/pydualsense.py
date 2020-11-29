@@ -1,5 +1,5 @@
 import hid
-from enums import (LedOptions, PlayerID,
+from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
 import threading
 
@@ -17,15 +17,19 @@ class pydualsense:
         self.color = (0,0,255) # set dualsense color around the touchpad to blue
 
         self.send_thread = True
-        send_report = threading.Thread(target=self.sendReport)
-        #send_report.start()
+        self.report_thread = threading.Thread(target=self.sendReport)
+        self.report_thread.start()
         # create thread for sending
+
+    def close(self):
+        self.send_thread = False
+        self.report_thread.join()
 
     def __find_device(self):
         devices = hid.enumerate(vid=0x054c)
         found_devices = []
         for device in devices:
-            if device['vendor_id'] == 0x54c and device['product_id'] == 0xCE6:
+            if device['vendor_id'] == 0x054c and device['product_id'] == 0x0CE6:
                 found_devices.append(device)
 
         # TODO: detect connection mode, bluetooth has a bigger write buffer
@@ -98,84 +102,74 @@ class pydualsense:
 
 
     def sendReport(self):
-       # while self.send_thread:
-        outReport = [0] * 48 # create empty list with range of output report
-        # packet type 
-        outReport[0] = 0x2
+        while self.send_thread:
+            outReport = [0] * 48 # create empty list with range of output report
+            # packet type 
+            outReport[0] = 0x2
 
 
-        # flags determing what changes this packet will perform
-        # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-        # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-        # 0x04 set the right trigger motor
-        # 0x08 set the left trigger motor
-        # 0x10 modification of audio volume
-        # 0x20 toggling of internal speaker while headset is connected 
-        # 0x40 modification of microphone volume
-        outReport[1] = 0xff # [1]
+            # flags determing what changes this packet will perform
+            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
+            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+            # 0x04 set the right trigger motor
+            # 0x08 set the left trigger motor
+            # 0x10 modification of audio volume
+            # 0x20 toggling of internal speaker while headset is connected 
+            # 0x40 modification of microphone volume
+            outReport[1] = 0xff # [1]
 
-        # further flags determining what changes this packet will perform
-        # 0x01 toggling microphone LED
-        # 0x02 toggling audio/mic mute
-        # 0x04 toggling LED strips on the sides of the touchpad
-        # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-        # 0x10 toggling white player indicator LEDs below touchpad
-        # 0x20 ???
-        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers) 
-        # 0x80 ???
-        outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
-        
-        outReport[3]= 0 # left low freq motor 0-255 # [3]
-        outReport[4] = 0 # right low freq motor 0-255 # [4]
-
-
-        # outReport[5] - outReport[8] audio related
-        
-
-        # set Micrphone LED, setting doesnt effect microphone settings
-        outReport[9] = self.audio.microphone_led # [9]
-
-        # set microphone muting
-        
+            # further flags determining what changes this packet will perform
+            # 0x01 toggling microphone LED
+            # 0x02 toggling audio/mic mute
+            # 0x04 toggling LED strips on the sides of the touchpad
+            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
+            # 0x10 toggling white player indicator LEDs below touchpad
+            # 0x20 ???
+            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers) 
+            # 0x80 ???
+            outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+            
+            outReport[3]= 0 # left low freq motor 0-255 # [3]
+            outReport[4] = 0 # right low freq motor 0-255 # [4]
 
 
-        # add right trigger mode + parameters to packet
-        outReport[11] = self.triggerR.mode.value
-        outReport[12] = self.triggerR.forces[0]
-        outReport[13] = self.triggerR.forces[1]
-        outReport[14] = self.triggerR.forces[2]
-        outReport[15] = self.triggerR.forces[3]
-        outReport[16] = self.triggerR.forces[4]
-        outReport[17] = self.triggerR.forces[5]
-        outReport[20] = self.triggerR.forces[6]
+            # outReport[5] - outReport[8] audio related
+            
 
-        outReport[22] = self.triggerL.mode.value
-        outReport[23] = self.triggerL.forces[0]
-        outReport[24] = self.triggerL.forces[1]
-        outReport[25] = self.triggerL.forces[2]
-        outReport[26] = self.triggerL.forces[3]
-        outReport[27] = self.triggerL.forces[4]
-        outReport[28] = self.triggerL.forces[5]
-        outReport[31] = self.triggerL.forces[6]
+            # set Micrphone LED, setting doesnt effect microphone settings
+            outReport[9] = self.audio.microphone_led # [9]
+
+            # set microphone muting
+            
 
 
-        """
-        outReport.append(self.light.ledOption.value[0]) # 
-        outReport.append(self.light.pulseOptions.value[0])
-        outReport.append(self.light.brightness.value[0])
-        outReport.append(self.light.playerNumber.value[0])
-        outReport.append(self.color[0]) # r
-        outReport.append(self.color[1]) # g
-        outReport.append(self.color[2]) # b
-        """
-        outReport[39] = self.light.ledOption.value
-        outReport[42] = self.light.pulseOptions.value
-        outReport[43] = self.light.brightness.value
-        outReport[44] = self.light.playerNumber.value
-        outReport[45] = self.color[0]
-        outReport[46] = self.color[1]
-        outReport[47] = self.color[2]
-        self.device.write(bytes(outReport)) # send to controller
+            # add right trigger mode + parameters to packet
+            outReport[11] = self.triggerR.mode.value
+            outReport[12] = self.triggerR.forces[0]
+            outReport[13] = self.triggerR.forces[1]
+            outReport[14] = self.triggerR.forces[2]
+            outReport[15] = self.triggerR.forces[3]
+            outReport[16] = self.triggerR.forces[4]
+            outReport[17] = self.triggerR.forces[5]
+            outReport[20] = self.triggerR.forces[6]
+
+            outReport[22] = self.triggerL.mode.value
+            outReport[23] = self.triggerL.forces[0]
+            outReport[24] = self.triggerL.forces[1]
+            outReport[25] = self.triggerL.forces[2]
+            outReport[26] = self.triggerL.forces[3]
+            outReport[27] = self.triggerL.forces[4]
+            outReport[28] = self.triggerL.forces[5]
+            outReport[31] = self.triggerL.forces[6]
+
+            outReport[39] = self.light.ledOption.value
+            outReport[42] = self.light.pulseOptions.value
+            outReport[43] = self.light.brightness.value
+            outReport[44] = self.light.playerNumber.value
+            outReport[45] = self.color[0]
+            outReport[46] = self.color[1]
+            outReport[47] = self.color[2]
+            self.device.write(bytes(outReport)) # send to controller
 
 
 
