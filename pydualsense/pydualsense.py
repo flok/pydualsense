@@ -7,22 +7,26 @@ class pydualsense:
 
     def __init__(self) -> None:
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
-        self.device = self.__find_device()
+        self.device: hid.Device = self.__find_device()
         self.light = DSLight() # control led light of ds
         self.audio = DSAudio()
         self.triggerL = DSTrigger()
         self.triggerR = DSTrigger()
 
-        # set default for the controller
-        self.color = (0,0,255) # set dualsense color around the touchpad to blue
+        self.color = (0,0,255) # set color around touchpad to blue
 
-        self.send_thread = True
+        self.receive_buffer_size = 64
+        self.send_report_size = 48
+        # controller states
+        self.state = DSState()
+
+        # thread for receiving and sending
+        self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
-        # create thread for sending
 
     def close(self):
-        self.send_thread = False
+        self.ds_thread = False
         self.report_thread.join()
 
     def __find_device(self):
@@ -98,79 +102,237 @@ class pydualsense:
     # TODO: audio
     # audio stuff
     def setMicrophoneLED(self, value):
-        self.audio.microphoneLED = 0x1
+        self.audio.microphoneLED = value
 
 
     def sendReport(self):
-        while self.send_thread:
-            outReport = [0] * 48 # create empty list with range of output report
-            # packet type 
-            outReport[0] = 0x2
+        """background thread handling the reading of the device and updating its states
+        """
+        while self.ds_thread:
 
-
-            # flags determing what changes this packet will perform
-            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-            # 0x04 set the right trigger motor
-            # 0x08 set the left trigger motor
-            # 0x10 modification of audio volume
-            # 0x20 toggling of internal speaker while headset is connected 
-            # 0x40 modification of microphone volume
-            outReport[1] = 0xff # [1]
-
-            # further flags determining what changes this packet will perform
-            # 0x01 toggling microphone LED
-            # 0x02 toggling audio/mic mute
-            # 0x04 toggling LED strips on the sides of the touchpad
-            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-            # 0x10 toggling white player indicator LEDs below touchpad
-            # 0x20 ???
-            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers) 
-            # 0x80 ???
-            outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+            # read data from the input report of the controller
+            inReport = self.device.read(self.receive_buffer_size)
             
-            outReport[3]= 0 # left low freq motor 0-255 # [3]
-            outReport[4] = 0 # right low freq motor 0-255 # [4]
+            # decrypt the packet and bind the inputs
+            self.readInput(inReport)
 
 
-            # outReport[5] - outReport[8] audio related
-            
+            # prepare new report for device
+            outReport = self.prepareReport()
 
-            # set Micrphone LED, setting doesnt effect microphone settings
-            outReport[9] = self.audio.microphone_led # [9]
+            # write the report to the device
+            self.writeReport(outReport)
 
-            # set microphone muting
-            
+    def readInput(self, inReport):
+        """read the reported data from the controller
+
+        :param inReport: report of the controller
+        :type inReport: bytes
+        """
+        states = list(inReport) # convert bytes to list
+        # states 0 is always 1
+        self.state.LX = states[1]
+        self.state.LY = states[2]
+        self.state.RX = states[3]
+        self.state.RY = states[4]
+        self.state.L2 = states[5]
+        self.state.R2 = states[6]
+
+        # state 7 always increments -> not used anywhere
+
+        buttonState = states[8]
+        self.state.triangle = (buttonState & (1 << 7)) != 0
+        self.state.circle = (buttonState & (1 << 6)) != 0
+        self.state.cross = (buttonState & (1 << 5)) != 0
+        self.state.square = (buttonState & (1 << 4)) != 0
 
 
-            # add right trigger mode + parameters to packet
-            outReport[11] = self.triggerR.mode.value
-            outReport[12] = self.triggerR.forces[0]
-            outReport[13] = self.triggerR.forces[1]
-            outReport[14] = self.triggerR.forces[2]
-            outReport[15] = self.triggerR.forces[3]
-            outReport[16] = self.triggerR.forces[4]
-            outReport[17] = self.triggerR.forces[5]
-            outReport[20] = self.triggerR.forces[6]
+        # dpad
+        dpad_state = buttonState & 0x0F
+        self.state.setDPadState(dpad_state)
 
-            outReport[22] = self.triggerL.mode.value
-            outReport[23] = self.triggerL.forces[0]
-            outReport[24] = self.triggerL.forces[1]
-            outReport[25] = self.triggerL.forces[2]
-            outReport[26] = self.triggerL.forces[3]
-            outReport[27] = self.triggerL.forces[4]
-            outReport[28] = self.triggerL.forces[5]
-            outReport[31] = self.triggerL.forces[6]
+        misc = states[9]
+        self.state.R3 = (misc & (1 << 7)) != 0
+        self.state.L3 = (misc & (1 << 6)) != 0
+        self.state.options = (misc & (1 << 5)) != 0
+        self.state.share = (misc & (1 << 4)) != 0
+        self.state.R2Btn = (misc & (1 << 3)) != 0
+        self.state.L2Btn = (misc & (1 << 2)) != 0
+        self.state.R1 = (misc & (1 << 1)) != 0
+        self.state.L1 = (misc & (1 << 0)) != 0
 
-            outReport[39] = self.light.ledOption.value
-            outReport[42] = self.light.pulseOptions.value
-            outReport[43] = self.light.brightness.value
-            outReport[44] = self.light.playerNumber.value
-            outReport[45] = self.color[0]
-            outReport[46] = self.color[1]
-            outReport[47] = self.color[2]
-            self.device.write(bytes(outReport)) # send to controller
+        misc2 = states[10]
+        self.state.ps = (misc2 & (1 << 0)) != 0
+        self.state.touchBtn = (misc2 & 0x02) != 0
 
+
+        # trackpad touch
+        self.state.trackPadTouch0.ID = inReport[33] & 0x7F
+        self.state.trackPadTouch0.isActive = (inReport[33] & 0x80) == 0
+        self.state.trackPadTouch0.X = ((inReport[35] & 0x0f) << 8) | (inReport[34])
+        self.state.trackPadTouch0.Y = ((inReport[36]) << 4) | ((inReport[35] & 0xf0) >> 4)
+
+        # trackpad touch
+        self.state.trackPadTouch1.ID = inReport[37] & 0x7F
+        self.state.trackPadTouch1.isActive = (inReport[37] & 0x80) == 0
+        self.state.trackPadTouch1.X = ((inReport[39] & 0x0f) << 8) | (inReport[38])
+        self.state.trackPadTouch1.Y = ((inReport[40]) << 4) | ((inReport[39] & 0xf0) >> 4)
+
+       # print(f'1Active = {self.state.trackPadTouch0.isActive}')
+       # print(f'X1: {self.state.trackPadTouch0.X} Y2: {self.state.trackPadTouch0.Y}')
+
+       # print(f'2Active = {self.state.trackPadTouch1.isActive}')
+       # print(f'X2: {self.state.trackPadTouch1.X} Y2: {self.state.trackPadTouch1.Y}')
+       # print(f'DPAD {self.state.DpadLeft} {self.state.DpadUp} {self.state.DpadRight} {self.state.DpadDown}')
+        
+        # TODO: implement gyrometer and accelerometer
+        # TODO: control mouse with touchpad for fun as DS4Windows
+        
+
+
+    def writeReport(self, outReport):
+        """Write the given report to the device
+
+        :param outReport: report with data for the controller
+        :type outReport: list
+        """
+        self.device.write(bytes(outReport))
+
+
+    def prepareReport(self):
+        """prepare the report for the controller with all the settings set since the previous update
+
+        :return: report for the controller with all infos
+        :rtype: list
+        """
+        outReport = [0] * 48 # create empty list with range of output report
+        # packet type 
+        outReport[0] = 0x2
+
+
+        # flags determing what changes this packet will perform
+        # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
+        # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+        # 0x04 set the right trigger motor
+        # 0x08 set the left trigger motor
+        # 0x10 modification of audio volume
+        # 0x20 toggling of internal speaker while headset is connected 
+        # 0x40 modification of microphone volume
+        outReport[1] = 0xff # [1]
+
+        # further flags determining what changes this packet will perform
+        # 0x01 toggling microphone LED
+        # 0x02 toggling audio/mic mute
+        # 0x04 toggling LED strips on the sides of the touchpad
+        # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
+        # 0x10 toggling white player indicator LEDs below touchpad
+        # 0x20 ???
+        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers) 
+        # 0x80 ???
+        outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+        
+        outReport[3]= 0 # left low freq motor 0-255 # [3]
+        outReport[4] = 0 # right low freq motor 0-255 # [4]
+
+        # outReport[5] - outReport[8] audio related
+
+        # set Micrphone LED, setting doesnt effect microphone settings
+        outReport[9] = self.audio.microphone_led # [9]
+
+        # add right trigger mode + parameters to packet
+        outReport[11] = self.triggerR.mode.value
+        outReport[12] = self.triggerR.forces[0]
+        outReport[13] = self.triggerR.forces[1]
+        outReport[14] = self.triggerR.forces[2]
+        outReport[15] = self.triggerR.forces[3]
+        outReport[16] = self.triggerR.forces[4]
+        outReport[17] = self.triggerR.forces[5]
+        outReport[20] = self.triggerR.forces[6]
+
+        outReport[22] = self.triggerL.mode.value
+        outReport[23] = self.triggerL.forces[0]
+        outReport[24] = self.triggerL.forces[1]
+        outReport[25] = self.triggerL.forces[2]
+        outReport[26] = self.triggerL.forces[3]
+        outReport[27] = self.triggerL.forces[4]
+        outReport[28] = self.triggerL.forces[5]
+        outReport[31] = self.triggerL.forces[6]
+
+        outReport[39] = self.light.ledOption.value
+        outReport[42] = self.light.pulseOptions.value
+        outReport[43] = self.light.brightness.value
+        outReport[44] = self.light.playerNumber.value
+        outReport[45] = self.color[0]
+        outReport[46] = self.color[1]
+        outReport[47] = self.color[2]
+
+        return outReport
+
+class DSTouchpad:
+    def __init__(self) -> None:
+        self.isActive = False
+        self.ID = 0
+        self.X = 0
+        self.Y = 0
+
+class DSState:
+
+    def __init__(self) -> None:
+        self.packerC = 0
+        self.square, self.triangle, self.circle, self.cross = False, False, False, False
+        self.DpadUp, self.DpadDown, self.DpadLeft, self.DpadRight = False, False, False, False
+        self.L1, self.L2, self.L3, self.R1, self.R2, self.R3, self.R2Btn, self.L2Btn = False, False, False, False, False, False, False, False
+        self.share, self.options, self.ps, self.touch1, self.touch2, self.touchBtn, self.touchRight, self.touchLeft = False, False, False, False, False, False, False, False
+        self.touchFinger1, self.touchFinger2 = False, False
+        self.RX, self.RY, self.LX, self.LY = 128,128,128,128
+        self.trackPadTouch0, self.trackPadTouch1 = DSTouchpad(), DSTouchpad()
+
+    def setDPadState(self, dpad_state):
+        if dpad_state == 0:
+            self.DpadUp = True
+            self.DpadDown = False
+            self.DpadLeft = False
+            self.DpadRight = False
+        elif dpad_state == 1:
+            self.DpadUp = True
+            self.DpadDown = False
+            self.DpadLeft = False
+            self.DpadRight = True
+        elif dpad_state == 2:
+            self.DpadUp = False
+            self.DpadDown = False
+            self.DpadLeft = False
+            self.DpadRight = True
+        elif dpad_state == 3:
+            self.DpadUp = False
+            self.DpadDown = True
+            self.DpadLeft = False
+            self.DpadRight = True
+        elif dpad_state == 4:
+            self.DpadUp = False
+            self.DpadDown = True
+            self.DpadLeft = False
+            self.DpadRight = False
+        elif dpad_state == 5:
+            self.DpadUp = False
+            self.DpadDown = True
+            self.DpadLeft = False
+            self.DpadRight = False
+        elif dpad_state == 6:
+            self.DpadUp = False
+            self.DpadDown = False
+            self.DpadLeft = True
+            self.DpadRight = False
+        elif dpad_state == 7:
+            self.DpadUp = True
+            self.DpadDown = False
+            self.DpadLeft = True
+            self.DpadRight = False
+        else:
+            self.DpadUp = False
+            self.DpadDown = False
+            self.DpadLeft = False
+            self.DpadRight = False
 
 
 class DSLight:
@@ -239,17 +401,3 @@ class DSTrigger:
         packet += [0,0] # unknown what these do ?
         packet.append(self.forces[-1]) # last force has a offset of 2 from the other forces. this is the frequency of the actuation
         return packet
-    
-if __name__ == "__main__":
-    ds = pydualsense()
-    import time
-  #  ds.triggerR.setMode(TriggerModes.Rigid)
- #   ds.triggerR.setForce(0, 255)
-    ds.setLeftTriggerMode(TriggerModes.Pulse)
-    ds.setLeftTriggerForce(1, 255)
-    ds.setRightTriggerMode(TriggerModes.Rigid)
-    ds.setRightTriggerForce(1, 255)
-#    ds.triggerL.setForce(6,255)
-    ds.sendReport()
-    time.sleep(2)
-    time.sleep(3)
