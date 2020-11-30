@@ -3,7 +3,7 @@ control your dualsense through python. using the hid library this module impleme
 
 # install
 
-Just install the package from pypi
+Just install the package from [pypi](https://pypi.org/project/pydualsense/)
 
 ```bash
 pip install pydualsense
@@ -29,6 +29,14 @@ See ``examples`` folder for some more ideas
 # dependecies
 
 - hid >= 1.0.4
+
+# Credits
+
+Most stuff for this implementation were provided by  published an used from:
+
+- [https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/](https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/)
+- [https://github.com/Ryochan7/DS4Windows](https://github.com/Ryochan7/DS4Windows)
+
 # Coming soon
 
 - reading the states of the controller to enable a fully compatibility with python - partially done
