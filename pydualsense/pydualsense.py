@@ -1,57 +1,83 @@
+from os import device_encoding
 import hid
 from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
 import threading
-
+import sys
+import winreg
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
         self.verbose = verbose
-
-        self.device: hid.Device = self.__find_device()
-
-
-
-        self.light = DSLight() # control led light of ds
-        self.audio = DSAudio()
-        self.triggerL = DSTrigger()
-        self.triggerR = DSTrigger()
-
+        self.receive_buffer_size = 64
+        self.send_report_size = 48
         self.color = (0,0,255) # set color around touchpad to blue
 
 
-        self.receive_buffer_size = 64
-        self.send_report_size = 48
-        # controller states
-        self.state = DSState()
+
+
+
+
+    def init(self):
+        """initialize module and device
+        """
+        self.device: hid.Device = self.__find_device()
+        self.light = DSLight() # control led light of ds
+        self.audio = DSAudio() # ds audio setting
+        self.triggerL = DSTrigger() # left trigger
+        self.triggerR = DSTrigger() # right trigger
+
+        self.state = DSState() # controller states
+
 
         # thread for receiving and sending
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
 
+        self.init = True
+
     def close(self):
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
 
-    def __find_device(self):
-        devices = hid.enumerate(vid=0x054c)
-        found_devices = []
-        for device in devices:
-            if device['vendor_id'] == 0x054c and device['product_id'] == 0x0CE6:
-                found_devices.append(device)
+    def _check_hide(self):
+        """check if hidguardian is used and controller is hidden
+        """
+        if sys.platform.startswith('win32'):
+            try:
+                access_reg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
+                access_key = winreg.OpenKey(access_reg, 'SYSTEM\CurrentControlSet\Services\HidGuardian\Parameters', 0, winreg.KEY_READ)
+                affected_devices = winreg.QueryValueEx(access_key, 'AffectedDevices')[0]
+                if "054C" in affected_devices and "0CE6" in affected_devices:
+                    return True
+                return False
+            except OSError as e:
+                print(e)
+        else:
+            # TODO: find something for other platforms. Maybe not even needed on linux
+            return False
 
+
+    def __find_device(self):
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
-        if len(found_devices) != 1:
-            raise Exception('no dualsense controller detected')
+        if self._check_hide():
+            raise Exception('HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller')
+        detected_device = None
+        devices = hid.enumerate(vid=0x054c)
+        for device in devices:
+            if device['vendor_id'] == 0x054c and device['product_id'] == 0x0CE6:
+                detected_device = device
 
 
-        dual_sense = hid.Device(vid=found_devices[0]['vendor_id'], pid=found_devices[0]['product_id'])
+        if detected_device == None:
+            raise Exception('No device detected')
+
+        dual_sense = hid.Device(vid=detected_device['vendor_id'], pid=detected_device['product_id'])
         return dual_sense
-
 
 
     # right trigger
@@ -62,6 +88,7 @@ class pydualsense:
         :type mode: TriggerModes
         """
         self.triggerR.mode = mode
+
 
     def setRightTriggerForce(self, forceID: int, force: int):
         """set the right trigger force. trigger consist of 7 parameter
@@ -77,7 +104,6 @@ class pydualsense:
         self.triggerR.setForce(id=forceID, force=force)
 
 
-    # left trigger
     def setLeftTriggerMode(self, mode: TriggerModes):
         """set the trigger mode for L2
 
@@ -85,6 +111,7 @@ class pydualsense:
         :type mode: TriggerModes
         """
         self.triggerL.mode = mode
+
 
     def setLeftTriggerForce(self, forceID: int, force: int):
         """set the left trigger force. trigger consist of 7 parameter
@@ -397,10 +424,6 @@ class DSLight:
 
     def setBrightness(self, brightness: Brightness):
         self._brightness = brightness
-
-    def setPlayerNumer(self, player):
-        if player > 5:
-            raise Exception('only 5 players supported. choose 1-5')
 
 
 
