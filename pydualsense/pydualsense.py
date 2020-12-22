@@ -13,6 +13,7 @@ class pydualsense:
         self.receive_buffer_size = 64
         self.send_report_size = 48
         self.color = (0,0,255) # set color around touchpad to blue
+
         self.leftMotor = 0
         self.rightMotor = 0
 
@@ -82,11 +83,13 @@ class pydualsense:
             raise Exception('maximum intensity is 255')
         self.leftMotor = intensity
 
+
     def setRightMotor(self, intensity: int):
         if intensity > 255:
             raise Exception('maximum intensity is 255')
         self.rightMotor = intensity
-
+        
+        
     # right trigger
     def setRightTriggerMode(self, mode: TriggerModes):
         """set the trigger mode for R2

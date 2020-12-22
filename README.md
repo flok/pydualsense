@@ -35,7 +35,9 @@ Help wanted from people that want to use this and have feature requests. Just op
 
 # Credits
 
+
 Most stuff for this implementation were provided by and used from:
+
 
 - [https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/](https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/)
 - [https://github.com/Ryochan7/DS4Windows](https://github.com/Ryochan7/DS4Windows)
