@@ -13,12 +13,10 @@ class pydualsense:
         self.receive_buffer_size = 64
         self.send_report_size = 48
         self.color = (0,0,255) # set color around touchpad to blue
+        self.leftMotor = 0
+        self.rightMotor = 0
 
-
-
-
-
-
+        
     def init(self):
         """initialize module and device
         """
@@ -79,6 +77,15 @@ class pydualsense:
         dual_sense = hid.Device(vid=detected_device['vendor_id'], pid=detected_device['product_id'])
         return dual_sense
 
+    def setLeftMotor(self, intensity: int):
+        if intensity > 255:
+            raise Exception('maximum intensity is 255')
+        self.leftMotor = intensity
+
+    def setRightMotor(self, intensity: int):
+        if intensity > 255:
+            raise Exception('maximum intensity is 255')
+        self.rightMotor = intensity
 
     # right trigger
     def setRightTriggerMode(self, mode: TriggerModes):
@@ -306,8 +313,8 @@ class pydualsense:
         # 0x80 ???
         outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
 
-        outReport[3] = 0 # left low freq motor 0-255 # [3]
-        outReport[4] = 0 # right low freq motor 0-255 # [4]
+        outReport[3] = self.leftMotor # left low freq motor 0-255 # [3]
+        outReport[4] = self.rightMotor # right low freq motor 0-255 # [4]
 
         # outReport[5] - outReport[8] audio related
 
