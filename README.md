@@ -25,6 +25,9 @@ ds.close() # closing the controller
 
 See ``examples`` folder for some more ideas
 
+# Help wanted
+
+Help wanted from people that want to use this and have feature requests. Just open a issue with the correct label.
 
 # dependecies
 
@@ -32,7 +35,9 @@ See ``examples`` folder for some more ideas
 
 # Credits
 
-Most stuff for this implementation were provided by  published an used from:
+
+Most stuff for this implementation were provided by and used from:
+
 
 - [https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/](https://www.reddit.com/r/gamedev/comments/jumvi5/dualsense_haptics_leds_and_more_hid_output_report/)
 - [https://github.com/Ryochan7/DS4Windows](https://github.com/Ryochan7/DS4Windows)
