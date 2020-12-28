@@ -143,17 +143,22 @@ class pydualsense:
         self.audio.microphone_led = value
 
     # color stuff
-    def setColor(self, r: int, g:int, b:int):
+    def setColor(self, r:int or tuple, g:int = None, b:int = None):
         """sets the led colour around the touchpad
 
         :param r: red channel, 0..255
-        :type r: int
-        :param g: green channel, 0..255
-        :type g: int
-        :param b: blue channel, 0..255
-        :type b: int
-        :raises Exception: wron color values
+        :type r: int or tuple
+        :param g: green channel, 0..255, defaults to None
+        :type g: int, optional
+        :param b: blue channel, 0..255, defaults to None
+        :type b: int, optional 
+        :raises Exception: wrong color values
         """
+        if (g == None and b == None):
+            try:
+                r, g, b = map(int, r)
+            except TypeError as te:
+                raise TypeError('r, g, and b must be ints or r must be a tuple with length 3.') from te  
         if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
             raise Exception('colors have values from 0 to 255 only')
         self.color = (r,g,b)
