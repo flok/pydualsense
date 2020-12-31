@@ -17,12 +17,12 @@ class Brightness(IntFlag):
     low = 0x2
 
 class PlayerID(IntFlag):
-    player1 = 1,
-    player2 = 2,
-    player3 = 4,
-    player4 = 8,
-    player5 = 16,
+    player1 = 4,
+    player2 = 10,
+    player3 = 21,
+    player4 = 27,
     all = 31
+
 
 class TriggerModes(IntFlag):
     Off = 0x0, # no resistance

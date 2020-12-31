@@ -8,13 +8,13 @@ print('Trigger Effect demo started')
 
 dualsense.setLeftMotor(255)
 dualsense.setRightMotor(100)
-dualsense.setLeftTriggerMode(TriggerModes.Rigid)
-dualsense.setLeftTriggerForce(1, 255)
+dualsense.triggerL.setMode(TriggerModes.Rigid)
+dualsense.triggerL.setForce(1, 255)
 
-dualsense.setRightTriggerMode(TriggerModes.Pulse_A)
-dualsense.setRightTriggerForce(0, 200)
-dualsense.setRightTriggerForce(1, 255)
-dualsense.setRightTriggerForce(2, 175)
+dualsense.triggerR.setMode(TriggerModes.Pulse_A)
+dualsense.triggerR.setForce(0, 200)
+dualsense.triggerR.setForce(1, 255)
+dualsense.triggerR.setForce(2, 175)
 
 import time; time.sleep(3)
 

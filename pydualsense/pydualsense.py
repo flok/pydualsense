@@ -1,5 +1,5 @@
 from os import device_encoding
-import hid
+import hid # type: ignore
 from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
 import threading
@@ -7,19 +7,18 @@ import sys
 import winreg
 class pydualsense:
 
-    def __init__(self, verbose: bool = False) -> None:
+    def __init__(self, verbose: bool = False) -> None:#
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
         self.verbose = verbose
         self.receive_buffer_size = 64
         self.send_report_size = 48
-        self.color = (0,0,255) # set color around touchpad to blue
 
         self.leftMotor = 0
         self.rightMotor = 0
 
-        
+
     def init(self):
-        """initialize module and device
+        """initialize module and device states
         """
         self.device: hid.Device = self.__find_device()
         self.light = DSLight() # control led light of ds
@@ -38,11 +37,14 @@ class pydualsense:
         self.init = True
 
     def close(self):
+        """
+        Stops the report thread and closes the HID device
+        """
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
 
-    def _check_hide(self):
+    def _check_hide(self) -> bool:
         """check if hidguardian is used and controller is hidden
         """
         if sys.platform.startswith('win32'):
@@ -60,7 +62,17 @@ class pydualsense:
             return False
 
 
-    def __find_device(self):
+    def __find_device(self) -> hid.Device:
+        """
+        find HID device and open it
+
+        Raises:
+            Exception: HIDGuardian detected
+            Exception: No device detected
+
+        Returns:
+            [type]: [description]
+        """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
         if self._check_hide():
@@ -79,117 +91,42 @@ class pydualsense:
         return dual_sense
 
     def setLeftMotor(self, intensity: int):
-        if intensity > 255:
+        """
+        set left motor rumble
+
+        Args:
+            intensity (int): rumble intensity
+
+        Raises:
+            TypeError: intensity false type
+            Exception: intensity out of bounds 0..255
+        """
+        if not isinstance(intensity, int):
+            raise TypeError('left motor intensity needs to be an int')
+
+        if intensity > 255 or intensity < 0:
             raise Exception('maximum intensity is 255')
         self.leftMotor = intensity
 
 
     def setRightMotor(self, intensity: int):
-        if intensity > 255:
+        """
+        set right motor rumble
+
+        Args:
+            intensity (int): rumble intensity
+
+        Raises:
+            TypeError: intensity false type
+            Exception: intensity out of bounds 0..255
+        """
+        if not isinstance(intensity, int):
+            raise TypeError('right motor intensity needs to be an int')
+
+        if intensity > 255 or intensity < 0:
             raise Exception('maximum intensity is 255')
         self.rightMotor = intensity
-        
-        
-    # right trigger
-    def setRightTriggerMode(self, mode: TriggerModes):
-        """set the trigger mode for R2
 
-        :param mode: enum of Trigger mode
-        :type mode: TriggerModes
-        """
-        self.triggerR.mode = mode
-
-
-    def setRightTriggerForce(self, forceID: int, force: int):
-        """set the right trigger force. trigger consist of 7 parameter
-
-        :param forceID: parameter id from  0 to 6
-        :type forceID: int
-        :param force: force from 0..ff (0..255) applied to the trigger
-        :type force: int
-        """
-        if forceID > 6:
-            raise Exception('only 7 parameters available')
-
-        self.triggerR.setForce(id=forceID, force=force)
-
-
-    def setLeftTriggerMode(self, mode: TriggerModes):
-        """set the trigger mode for L2
-
-        :param mode: enum of Trigger mode
-        :type mode: TriggerModes
-        """
-        self.triggerL.mode = mode
-
-
-    def setLeftTriggerForce(self, forceID: int, force: int):
-        """set the left trigger force. trigger consist of 7 parameter
-
-        :param forceID: parameter id from  0 to 6
-        :type forceID: int
-        :param force: force from 0..ff (0..255) applied to the trigger
-        :type force: int
-        """
-
-        if forceID > 6:
-            raise Exception('only 7 parameters available')
-        self.triggerL.setForce(id=forceID, force=force)
-
-
-    # TODO: audio
-    # audio stuff
-    def setMicrophoneLED(self, value):
-        self.audio.microphone_led = value
-
-    # color stuff
-    def setColor(self, r: int, g:int, b:int):
-        """sets the led colour around the touchpad
-
-        :param r: red channel, 0..255
-        :type r: int
-        :param g: green channel, 0..255
-        :type g: int
-        :param b: blue channel, 0..255
-        :type b: int
-        :raises Exception: wron color values
-        """
-        if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
-            raise Exception('colors have values from 0 to 255 only')
-        self.color = (r,g,b)
-
-    def setLEDOption(self, option: LedOptions):
-        """set led option
-
-        :param option: led option
-        :type option: LedOptions
-        """
-        self.light.ledOption = option
-
-    def setPulseOption(self, option: PulseOptions):
-        """set the pulse option for the leds
-
-        :param option: [description]
-        :type option: PulseOptions
-        """
-        self.light.pulseOptions = option
-
-    def setBrightness(self, brightness: Brightness):
-        """set the brightness of the player leds
-
-        :param brightness: brightness for the leds
-        :type brightness: Brightness
-        """
-        self.light.brightness = brightness
-
-    def setPlayerID(self, player : PlayerID):
-        """set the player ID. The controller has 5 white LED which signals
-        which player the controller is
-
-        :param player: the player id from 1 to 5
-        :type player: PlayerID
-        """
-        self.light.playerNumber = player
 
     def sendReport(self):
         """background thread handling the reading of the device and updating its states
@@ -210,10 +147,11 @@ class pydualsense:
             self.writeReport(outReport)
 
     def readInput(self, inReport):
-        """read the reported data from the controller
+        """
+        read the input from the controller and assign the states
 
-        :param inReport: report of the controller
-        :type inReport: bytes
+        Args:
+            inReport (bytearray): read bytearray containing the state of the whole controller
         """
         states = list(inReport) # convert bytes to list
         # states 0 is always 1
@@ -276,19 +214,21 @@ class pydualsense:
 
 
     def writeReport(self, outReport):
-        """Write the given report to the device
+        """
+        write the report to the device
 
-        :param outReport: report with data for the controller
-        :type outReport: list
+        Args:
+            outReport (list): report to be written to device
         """
         self.device.write(bytes(outReport))
 
 
     def prepareReport(self):
-        """prepare the report for the controller with all the settings set since the previous update
+        """
+        prepare the output to be send to the controller
 
-        :return: report for the controller with all infos
-        :rtype: list
+        Returns:
+            list: report to send to controller
         """
         outReport = [0] * 48 # create empty list with range of output report
         # packet type
@@ -347,15 +287,18 @@ class pydualsense:
         outReport[42] = self.light.pulseOptions.value
         outReport[43] = self.light.brightness.value
         outReport[44] = self.light.playerNumber.value
-        outReport[45] = self.color[0]
-        outReport[46] = self.color[1]
-        outReport[47] = self.color[2]
+        outReport[45] = self.light.TouchpadColor[0]
+        outReport[46] = self.light.TouchpadColor[1]
+        outReport[47] = self.light.TouchpadColor[2]
         if self.verbose:
             print(outReport)
         return outReport
 
 class DSTouchpad:
     def __init__(self) -> None:
+        """
+        Class represents the Touchpad of the controller
+        """
         self.isActive = False
         self.ID = 0
         self.X = 0
@@ -422,25 +365,134 @@ class DSState:
 
 
 class DSLight:
-    """DualSense Light class
-
-        make it simple, no get or set functions. quick and dirty
+    """
+    Represents all features of lights on the controller
     """
     def __init__(self) -> None:
         self.brightness: Brightness = Brightness.low # sets
         self.playerNumber: PlayerID = PlayerID.player1
         self.ledOption : LedOptions = LedOptions.Both
         self.pulseOptions : PulseOptions = PulseOptions.Off
+        self.TouchpadColor = (0,0,255)
+
+    def setLEDOption(self, option: LedOptions):
+        """
+        Sets the LED Option
+
+        Args:
+            option (LedOptions): Led option
+
+        Raises:
+            TypeError: LedOption is false type
+        """
+        if not isinstance(option, LedOptions):
+            raise TypeError('Need LEDOption type')
+        self.ledOption = option
+
+    def setPulseOption(self, option: PulseOptions):
+        """
+        Sets the Pulse Option of the LEDs
+
+        Args:
+            option (PulseOptions): pulse option of the LEDs
+
+        Raises:
+            TypeError: Pulse option is false type
+        """
+        if not isinstance(option, PulseOptions):
+            raise TypeError('Need PulseOption type')
+        self.pulseOptions = option
 
     def setBrightness(self, brightness: Brightness):
-        self._brightness = brightness
+        """
+        Defines the brightness of the Player LEDs
 
+        Args:
+            brightness (Brightness): brightness of LEDS
+
+        Raises:
+            TypeError: brightness false type
+        """
+        if not isinstance(brightness, Brightness):
+            raise TypeError('Need Brightness type')
+        self.brightness = brightness
+
+    def setPlayerID(self, player : PlayerID):
+        """
+        Sets the PlayerID of the controller with the choosen LEDs.
+        The controller has 4 Player states
+
+        Args:
+            player (PlayerID): chosen PlayerID for the Controller
+
+        Raises:
+            TypeError: [description]
+        """
+        if not isinstance(player, PlayerID):
+            raise TypeError('Need PlayerID type')
+        self.playerNumber = player
+
+    def setColorI(self, r: int , g: int, b: int) -> None:
+        """
+        Sets the Color around the Touchpad of the controller
+
+        Args:
+            r (int): red channel
+            g (int): green channel
+            b (int): blue channel
+
+        Raises:
+            TypeError: color channels have wrong type
+            Exception: color channels are out of bounds
+        """
+        if not isinstance(r, int) or not isinstance(g, int) or not isinstance(b, int):
+            raise TypeError('Color parameter need to be int')
+        # check if color is out of bounds
+        if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
+            raise Exception('colors have values from 0 to 255 only')
+        self.TouchpadColor = (r,g,b)
+
+
+    def setColorT(self, color: tuple) -> None:
+        """
+        Sets the Color around the Touchpad as a tuple
+
+        Args:
+            color (tuple): color as tuple
+
+        Raises:
+            TypeError: color has wrong type
+            Exception: color channels are out of bounds
+        """
+        if not isinstance(color, tuple):
+            raise TypeError('Color type is tuple')
+        # unpack for out of bounds check
+        r,g,b = map(int, color)
+        # check if color is out of bounds
+        if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
+            raise Exception('colors have values from 0 to 255 only')
+        self.TouchpadColor = (r,g,b)
 
 
 class DSAudio:
     def __init__(self) -> None:
         self.microphone_mute = 0
         self.microphone_led = 0
+
+    def setMicrophoneLED(self, value):
+        """
+        Activates or disables the microphone led.
+        This doesnt change the mute/unmutes the microphone itself.
+
+        Args:
+            value (int): On or off microphone LED
+
+        Raises:
+            Exception: false state for the led
+        """
+        if value > 1 or value < 0:
+            raise Exception('Microphone LED can only be on or off (0 .. 1)')
+        self.microphone_led = value
 
 class DSTrigger:
     def __init__(self) -> None:
@@ -450,36 +502,37 @@ class DSTrigger:
         # force parameters for the triggers
         self.forces = [0 for i in range(7)]
 
-    def setForce(self, id:int = 0, force:int = 0):
-        """set the force of the trigger
-
-        :param id: id of the trigger parameters. 6 possible, defaults to 0
-        :type id: int, optional
-        :param force: force 0 to 255, defaults to 0
-        :type force: int, optional
-        :raises Exception: false trigger parameter accessed. only available trigger parameters from 0 to 6
+    def setForce(self, forceID: int = 0, force: int = 0):
         """
-        if id > 6 or id < 0:
-            raise Exception('only trigger parameters 0 to 6 available')
-        self.forces[id] = force
+        Sets the forces of the choosen force parameter
+
+        Args:
+            forceID (int, optional): force parameter. Defaults to 0.
+            force (int, optional): applied force to the parameter. Defaults to 0.
+
+        Raises:
+            TypeError: wrong type of forceID or force
+            Exception: choosen a false force parameter
+        """
+        if not isinstance(forceID, int) or not isinstance(force, int):
+            raise TypeError('forceID and force needs to be type int')
+
+        if forceID > 6 or forceID < 0:
+            raise Exception('only 7 parameters available')
+
+        self.forces[forceID] = force
 
     def setMode(self, mode: TriggerModes):
-        """set mode on the trigger
-
-        :param mode: mode for trigger
-        :type mode: TriggerModes
         """
+        Set the Mode for the Trigger
+
+        Args:
+            mode (TriggerModes): Trigger mode
+
+        Raises:
+            TypeError: false Trigger mode type
+        """
+        if not isinstance(mode, TriggerModes):
+            raise TypeError('Trigger mode parameter needs to be of type `TriggerModes`')
+
         self.mode = mode
-
-    def getTriggerPacket(self):
-        """returns array of the trigger modes and its parameters
-
-        :return: packet of the trigger settings
-        :rtype: list
-        """
-        # create packet
-        packet = [self.mode.value]
-        packet += [self.forces[i] for i in range(6)]
-        packet += [0,0] # unknown what these do ?
-        packet.append(self.forces[-1]) # last force has a offset of 2 from the other forces. this is the frequency of the actuation
-        return packet

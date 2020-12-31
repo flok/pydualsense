@@ -4,11 +4,11 @@ from pydualsense import *
 dualsense = pydualsense()
 dualsense.init()
 # set color around touchpad to red
-dualsense.setColor(0,0,255)
+dualsense.light.setColorI(255,0,0)
 # enable microphone indicator
-dualsense.setMicrophoneLED(1)
-# set all player indicators on
-dualsense.setPlayerID(PlayerID.all)
+dualsense.audio.setMicrophoneLED(1)
+# set all player 1 indicator on
+dualsense.light.setPlayerID(PlayerID.player1)
 # sleep a little to see the result on the controller
 # this is not needed in normal usage
 import time; time.sleep(2)

@@ -10,16 +10,15 @@ pip install pydualsense
 ```
 # usage
 
-
-
 ```python
 
 from pydualsense import pydualsense
 
 ds = pydualsense() # open controller
-ds.setColor(255,0,0) # set touchpad color to red
-ds.setLeftTriggerMode(TriggerModes.Rigid)
-ds.setLeftTriggerForce(1, 255)
+ds.init() # initialize controller
+ds.light.setColorI(255,0,0) # set touchpad color to red
+ds.triggerL.setMode(TriggerModes.Rigid)
+ds.triggerL.setForce(1, 255)
 ds.close() # closing the controller
 ```
 
@@ -44,5 +43,7 @@ Most stuff for this implementation were provided by and used from:
 
 # Coming soon
 
+- add bluetooth support
+- add multiple controllers
 - reading the states of the controller to enable a fully compatibility with python - partially done
 - add documentation using sphinx
