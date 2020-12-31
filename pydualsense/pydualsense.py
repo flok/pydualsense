@@ -57,9 +57,8 @@ class pydualsense:
                 return False
             except OSError as e:
                 print(e)
-        else:
-            # TODO: find something for other platforms. Maybe not even needed on linux
-            return False
+
+        return False
 
 
     def __find_device(self) -> hid.Device:
@@ -71,13 +70,13 @@ class pydualsense:
             Exception: No device detected
 
         Returns:
-            [type]: [description]
+            hid.Device: returns opened controller device
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
         if self._check_hide():
             raise Exception('HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller')
-        detected_device = None
+        detected_device: hid.Device = None
         devices = hid.enumerate(vid=0x054c)
         for device in devices:
             if device['vendor_id'] == 0x054c and device['product_id'] == 0x0CE6:
