@@ -4,7 +4,6 @@ from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
 import threading
 import sys
-import winreg
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:#
@@ -43,23 +42,7 @@ class pydualsense:
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
-
-    def _check_hide(self) -> bool:
-        """check if hidguardian is used and controller is hidden
-        """
-        if sys.platform.startswith('win32'):
-            try:
-                access_reg = winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE)
-                access_key = winreg.OpenKey(access_reg, 'SYSTEM\CurrentControlSet\Services\HidGuardian\Parameters', 0, winreg.KEY_READ)
-                affected_devices = winreg.QueryValueEx(access_key, 'AffectedDevices')[0]
-                if "054C" in affected_devices and "0CE6" in affected_devices:
-                    return True
-                return False
-            except OSError as e:
-                print(e)
-
-        return False
-
+        
 
     def __find_device(self) -> hid.Device:
         """
@@ -74,8 +57,10 @@ class pydualsense:
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
-        if self._check_hide():
-            raise Exception('HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller')
+        if sys.platform.startswith('win32'):
+            import pydualsense.hidguardian as hidguardian
+            if hidguardian.check_hide():
+                raise Exception('HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller')
         detected_device: hid.Device = None
         devices = hid.enumerate(vid=0x054c)
         for device in devices:
