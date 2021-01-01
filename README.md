@@ -3,7 +3,7 @@ control your dualsense through python. using the hid library this package implem
 
 # install
 
-Download [hidapi](https://github.com/libusb/hidapi/releases) and place the x64 .dll file into your System32 folder. After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
+Download [hidapi](https://github.com/libusb/hidapi/releases) and place the x64 .dll file into your Workspace. After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
 
 ```bash
 pip install pydualsense
