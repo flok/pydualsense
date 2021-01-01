@@ -1,4 +1,8 @@
-from os import device_encoding
+
+# needed for python > 3.8
+if sys.version_info >= (3,8):
+    os.add_dll_directory(os.getcwd())
+
 import hid # type: ignore
 from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
