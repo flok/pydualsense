@@ -1,5 +1,6 @@
 
 # needed for python > 3.8
+import os, sys
 if sys.version_info >= (3,8):
     os.add_dll_directory(os.getcwd())
 
@@ -7,7 +8,6 @@ import hid # type: ignore
 from .enums import (LedOptions, PlayerID,
                    PulseOptions, TriggerModes, Brightness)
 import threading
-import sys
 import winreg
 class pydualsense:
 
