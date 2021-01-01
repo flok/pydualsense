@@ -1,9 +1,9 @@
 # pydualsense
-control your dualsense through python. using the hid library this module implements the sending report for controlling you new PS5 controller. It creates a background thread to constantly receive and update the controller.
+control your dualsense through python. using the hid library this package implements the report features for controlling your new PS5 controller. 
 
 # install
 
-Just install the package from [pypi](https://pypi.org/project/pydualsense/)
+Download [hidapi](https://github.com/libusb/hidapi/releases) and place the x64 .dll file into your System32 folder. After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
 
 ```bash
 pip install pydualsense
@@ -22,7 +22,7 @@ ds.triggerL.setForce(1, 255)
 ds.close() # closing the controller
 ```
 
-See ``examples`` folder for some more ideas
+See [examples](https://github.com/flok/pydualsense/tree/master/examples) folder for some more ideas
 
 # Help wanted
 
