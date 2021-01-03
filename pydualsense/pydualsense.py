@@ -1,9 +1,14 @@
-from os import device_encoding
+
+# needed for python > 3.8
+import os, sys
+if sys.version_info >= (3,8):
+    os.add_dll_directory(os.getcwd())
+
 import hid # type: ignore
-from .enums import (LedOptions, PlayerID,
-                   PulseOptions, TriggerModes, Brightness)
+from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness) # type: ignore
 import threading
 import sys
+import winreg
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:#
