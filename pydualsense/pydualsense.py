@@ -7,8 +7,6 @@ if sys.version_info >= (3,8):
 import hid # type: ignore
 from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness) # type: ignore
 import threading
-import sys
-import winreg
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:#
