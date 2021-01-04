@@ -1,7 +1,7 @@
 
 # needed for python > 3.8
 import os, sys
-if sys.version_info >= (3,8):
+if sys.platform.startswith('win32') and sys.version_info >= (3,8):
     os.add_dll_directory(os.getcwd())
 
 import hid # type: ignore
