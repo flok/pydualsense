@@ -1,7 +1,7 @@
 import winreg
 import sys
 
-def check_hide(self) -> bool:
+def check_hide() -> bool:
         """check if hidguardian is used and controller is hidden
         """
         if sys.platform.startswith('win32'):
