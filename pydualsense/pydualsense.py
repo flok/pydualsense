@@ -4,7 +4,7 @@ import os, sys
 if sys.platform.startswith('win32') and sys.version_info >= (3,8):
     os.add_dll_directory(os.getcwd())
 
-import hid # type: ignore
+import hidapi
 from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness) # type: ignore
 import threading
 class pydualsense:
@@ -22,7 +22,7 @@ class pydualsense:
     def init(self):
         """initialize module and device states
         """
-        self.device: hid.Device = self.__find_device()
+        self.device: hidapi.Device = self.__find_device()
         self.light = DSLight() # control led light of ds
         self.audio = DSAudio() # ds audio setting
         self.triggerL = DSTrigger() # left trigger
@@ -36,8 +36,6 @@ class pydualsense:
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
 
-        self.init = True
-
     def close(self):
         """
         Stops the report thread and closes the HID device
@@ -45,9 +43,9 @@ class pydualsense:
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
-        
 
-    def __find_device(self) -> hid.Device:
+
+    def __find_device(self) -> hidapi.Device:
         """
         find HID device and open it
 
@@ -64,17 +62,17 @@ class pydualsense:
             import pydualsense.hidguardian as hidguardian
             if hidguardian.check_hide():
                 raise Exception('HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller')
-        detected_device: hid.Device = None
-        devices = hid.enumerate(vid=0x054c)
+        detected_device: hidapi.Device = None
+        devices = hidapi.enumerate(vendor_id=0x054c)
         for device in devices:
-            if device['vendor_id'] == 0x054c and device['product_id'] == 0x0CE6:
+            if device.vendor_id == 0x054c and device.product_id == 0x0CE6:
                 detected_device = device
 
 
         if detected_device == None:
             raise Exception('No device detected')
 
-        dual_sense = hid.Device(vid=detected_device['vendor_id'], pid=detected_device['product_id'])
+        dual_sense = hidapi.Device(vendor_id=detected_device.vendor_id, product_id=detected_device.product_id)
         return dual_sense
 
     def setLeftMotor(self, intensity: int):
@@ -122,7 +120,7 @@ class pydualsense:
 
             # read data from the input report of the controller
             inReport = self.device.read(self.receive_buffer_size)
-
+            print(inReport)
             # decrypt the packet and bind the inputs
             self.readInput(inReport)
 
