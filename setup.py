@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pydualsense',
-    version='0.5.0',
+    version='0.5.1',
     description='use your DualSense (PS5) controller with python',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -14,5 +14,5 @@ setup(
     author='Florian K',
     license='MIT License',
     packages=setuptools.find_packages(),
-    install_requires=['hidapi-usb']
+    install_requires=['hidapi-usb', 'cffi']
 )
