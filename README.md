@@ -12,7 +12,7 @@ pip install pydualsense
 
 ```python
 
-from pydualsense import pydualsense
+from pydualsense import pydualsense, TriggerModes
 
 ds = pydualsense() # open controller
 ds.init() # initialize controller
