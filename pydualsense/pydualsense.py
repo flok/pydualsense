@@ -120,7 +120,8 @@ class pydualsense:
 
             # read data from the input report of the controller
             inReport = self.device.read(self.receive_buffer_size)
-            print(inReport)
+            if self.verbose:
+                print(inReport)
             # decrypt the packet and bind the inputs
             self.readInput(inReport)
 
