@@ -5,15 +5,13 @@ if sys.platform.startswith('win32') and sys.version_info >= (3,8):
     os.add_dll_directory(os.getcwd())
 
 import hidapi
-from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness) # type: ignore
+from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType) # type: ignore
 import threading
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:#
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
         self.verbose = verbose
-        self.receive_buffer_size = 64
-        self.send_report_size = 48
 
         self.leftMotor = 0
         self.rightMotor = 0
@@ -30,11 +28,25 @@ class pydualsense:
 
         self.state = DSState() # controller states
 
+        self.conType = self.determineConnectionType() # determine USB or BT connection
+
 
         # thread for receiving and sending
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
+
+    def determineConnectionType(self) -> ConnectionType:
+
+        if self.device._device.input_report_length == 64:
+            self.input_report_length = 64
+            self.output_report_length = 64
+            return ConnectionType.USB
+        elif  self.device._device.input_report_length == 78:
+            self.input_report_length = 78
+            self.output_report_length = 78
+            return ConnectionType.BT
+
 
     def close(self):
         """
@@ -117,9 +129,8 @@ class pydualsense:
         """background thread handling the reading of the device and updating its states
         """
         while self.ds_thread:
-
             # read data from the input report of the controller
-            inReport = self.device.read(self.receive_buffer_size)
+            inReport = self.device.read(self.input_report_length)
             if self.verbose:
                 print(inReport)
             # decrypt the packet and bind the inputs
@@ -216,7 +227,8 @@ class pydualsense:
         Returns:
             list: report to send to controller
         """
-        outReport = [0] * 48 # create empty list with range of output report
+
+        outReport = [0] * self.output_report_length # create empty list with range of output report
         # packet type
         outReport[0] = 0x2
 
@@ -249,6 +261,8 @@ class pydualsense:
 
         # set Micrphone LED, setting doesnt effect microphone settings
         outReport[9] = self.audio.microphone_led # [9]
+
+        outReport[10] = 0x10 if self.audio.microphone_state == True else 0x00
 
         # add right trigger mode + parameters to packet
         outReport[11] = self.triggerR.mode.value
@@ -471,14 +485,23 @@ class DSAudio:
         This doesnt change the mute/unmutes the microphone itself.
 
         Args:
-            value (int): On or off microphone LED
+            value (bool): On or off microphone LED
 
         Raises:
             Exception: false state for the led
         """
-        if value > 1 or value < 0:
-            raise Exception('Microphone LED can only be on or off (0 .. 1)')
+        if not isinstance(value, bool):
+           raise TypeError('MicrophoneLED can only be a bool')
         self.microphone_led = value
+
+    def setMicrophoneMute(self, state):
+
+        if not isinstance(state, bool):
+            raise TypeError('state needs to be bool')
+
+        self.setMicrophoneLED(state) # set led accordingly
+        self.microphone_state = state
+
 
 class DSTrigger:
     def __init__(self) -> None:

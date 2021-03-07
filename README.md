@@ -30,7 +30,7 @@ Help wanted from people that want to use this and have feature requests. Just op
 
 # dependecies
 
-- hid >= 1.0.4
+- hidapi-usb >= 0.2.6
 
 # Credits
 

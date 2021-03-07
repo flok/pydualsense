@@ -13,6 +13,6 @@ def check_hide() -> bool:
                     return True
                 return False
             except OSError as e:
-                print(e)
+                pass
 
         return False
