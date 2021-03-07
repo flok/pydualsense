@@ -185,6 +185,7 @@ class pydualsense:
         misc2 = states[10]
         self.state.ps = (misc2 & (1 << 0)) != 0
         self.state.touchBtn = (misc2 & 0x02) != 0
+        self.state.micBtn = (misc2 & 0x04) != 0
 
 
         # trackpad touch
@@ -262,7 +263,7 @@ class pydualsense:
         # set Micrphone LED, setting doesnt effect microphone settings
         outReport[9] = self.audio.microphone_led # [9]
 
-        outReport[10] = 0x10 if self.audio.microphone_state == True else 0x00
+        outReport[10] = 0x10 if self.audio.microphone_mute == True else 0x00
 
         # add right trigger mode + parameters to packet
         outReport[11] = self.triggerR.mode.value
@@ -500,7 +501,7 @@ class DSAudio:
             raise TypeError('state needs to be bool')
 
         self.setMicrophoneLED(state) # set led accordingly
-        self.microphone_state = state
+        self.microphone_mute = state
 
 
 class DSTrigger:
