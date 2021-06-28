@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pydualsense',
-    version='0.5.3',
+    version='0.5.5',
     description='use your DualSense (PS5) controller with python',
     long_description=long_description,
     long_description_content_type="text/markdown",
