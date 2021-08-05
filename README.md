@@ -1,13 +1,32 @@
 # pydualsense
 control your dualsense through python. using the hid library this package implements the report features for controlling your new PS5 controller. 
 
-# install
+# Installation
 
+
+## Windows 
 Download [hidapi](https://github.com/libusb/hidapi/releases) and place the x64 .dll file into your Workspace. After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
 
 ```bash
 pip install pydualsense
 ```
+
+## Linux
+
+On Linux based system you first need to install the hidapi through your package manager of your system.
+
+On an Ubuntu system the package ```libhidapi-dev``` is required.
+
+```bash
+sudo apt install libhidapi-dev
+```
+
+After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
+
+```bash
+pip install pydualsense
+```
+
 # usage
 
 ```python
