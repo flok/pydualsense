@@ -49,7 +49,7 @@ Help wanted from people that want to use this and have feature requests. Just op
 
 # dependecies
 
-- hidapi-usb >= 0.2.6
+- hidapi-usb >= 0.3
 
 # Credits
 
