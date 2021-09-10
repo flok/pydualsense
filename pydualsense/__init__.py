@@ -1,2 +1,2 @@
 from .enums import LedOptions,Brightness,PlayerID,PulseOptions,TriggerModes
-from .pydualsense import pydualsense, DSLight, DSState, DSTouchpad, DSTrigger, DSAudio
+from .pydualsense import pydualsense, Light, DSState, DSTouchpad, Trigger, DSAudio
