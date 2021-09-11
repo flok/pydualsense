@@ -1,35 +1,34 @@
-from enum import IntFlag
+from enum import IntFlag, IntEnum
 
 
-class ConnectionType(IntFlag):
+class ConnectionType(IntEnum):
     """
     How the DualSense controller is connected to the computer.
     """
 
-    BT = 0x0,
+    BT = 0x0
     USB = 0x1
 
 
 class LedOptions(IntFlag):
-    Off = 0x0,
-    PlayerLedBrightness = 0x1,
-    UninterrumpableLed = 0x2,
-    Both = 0x01 | 0x02
+    Off = 0x0
+    PlayerLedBrightness = 0x1
+    UninterrumpableLed = 0x2
 
 
-class PulseOptions(IntFlag):
-    Off = 0x0,
-    FadeBlue = 0x1,
+class PulseOptions(IntEnum):
+    Off = 0x0
+    FadeBlue = 0x1
     FadeOut = 0x2
 
 
-class Brightness(IntFlag):
+class Brightness(IntEnum):
     high = 0x0,
     medium = 0x1,
     low = 0x2
 
 
-class PlayerID(IntFlag):
+class PlayerID(IntEnum):
     """
     Possible player id LED states.
     """

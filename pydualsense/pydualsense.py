@@ -77,6 +77,12 @@ class DualSense:
         self.r1: Button = Button()
         self.r2: Trigger = Trigger()
 
+        self.share: Button = Button()
+        self.options: Button = Button()
+        self.ps: Button = Button()
+
+        self.trackpad: Trackpad = Trackpad()
+
         self.player_id: PlayerID = PlayerID.OFF
 
     @property
@@ -330,7 +336,7 @@ class DualSense:
 class DSTouchpad:
     def __init__(self) -> None:
         """
-        Class represents the Touchpad of the controller
+        Class represents the Trackpad of the controller
         """
         self.isActive = False
         self.ID = 0
@@ -425,7 +431,7 @@ class Light:
 
     def setColorI(self, r: int, g: int, b: int) -> None:
         """
-        Sets the Color around the Touchpad of the controller
+        Sets the Color around the Trackpad of the controller
 
         Args:
             r (int): red channel
@@ -445,7 +451,7 @@ class Light:
 
     def setColorT(self, color: tuple) -> None:
         """
-        Sets the Color around the Touchpad as a tuple
+        Sets the Color around the Trackpad as a tuple
 
         Args:
             color (tuple): color as tuple
@@ -472,13 +478,43 @@ class Button:
     def __init__(self):
         self.pressed: bool = False
 
+    def __repr__(self):
+        return f"<{self.__class__.__qualname__} {'_' if self.pressed else '-'}>"
 
-class Microphone:
+
+class TrackpadTouch:
     """
-    The microphone peripheral of the :class:`.DualSense`.
+    .. todo:: Find out what each field means.
+    """
+
+    def __init__(self):
+        self.id = 0
+        self.active = False
+        self.x = 0
+        self.y = 0
+
+
+class Trackpad(Button):
+    """
+    The trackpad of the :class:`.DualSense`, which also behaves as a button.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.touches: list[TrackpadTouch] = [TrackpadTouch(), TrackpadTouch()]
+
+    def __repr__(self):
+        return f"<{self.__class__.__qualname__} {'_' if self.pressed else '-'} with {len(self.touches)} touches>"
+
+
+class Microphone(Button):
+    """
+    The microphone peripheral of the :class:`.DualSense`, which also behaves as a button.
     """
 
     def __init__(self) -> None:
+        super().__init__()
+
         self.enabled: bool = True
         """
         If the mic is capturing audio.
@@ -490,7 +526,7 @@ class Microphone:
         """
 
     def __repr__(self):
-        return f"<Microphone {'enabled' if self.enabled else 'muted'} with LED {'on' if self.led_lit else 'off'}>"
+        return f"<Microphone {'_' if self.pressed else '-'} {'enabled' if self.enabled else 'muted'} with LED {'on' if self.led_lit else 'off'}>"
 
     def mute(self):
         """
@@ -522,12 +558,14 @@ class TriggerMode:
         return f"<{self.__class__.__qualname__} {self.flag!r}: {self.forces!r}>"
 
 
-class Trigger:
+class Trigger(Button):
     """
-    One of the two triggers of the :class:`.DualSense`.
+    One of the two triggers of the :class:`.DualSense`, which additionally behaves as a digital button.
     """
 
     def __init__(self) -> None:
+        super().__init__()
+
         self.mode: TriggerMode = TriggerMode(TriggerModeFlag.OFF)
         """
         The feedback mode of the trigger.
@@ -535,21 +573,23 @@ class Trigger:
         .. seealso:: :class:`.TriggerModes`
         """
 
+        self.position: int = 0
+        """
+        The position the trigger is currently in.
+        """
+
     def __repr__(self):
-        return f"<{self.__class__.__qualname__}: {self.mode}>"
+        return f"<{self.__class__.__qualname__} {self.position}{'_' if self.pressed else '-'} {self.position} {self.mode}>"
 
 
-class Stick:
+class Stick(Button):
     """
     One of the two sticks of the :class:`.DualSense`.
     """
 
     def __init__(self):
-        self.pressed: bool = False
-        """
-        Whether the stick is being pressed or not.
-        """
-
+        super().__init__()
+        
         self.x: int = 0
         """
         The horizontal position of the stick, from -127 to 127.
@@ -561,7 +601,7 @@ class Stick:
         """
 
     def __repr__(self):
-        return f"<{self.__class__.__qualname__} {'pressed' if self.pressed else 'unpressed'} at {self.x}, {self.y}>"
+        return f"<{self.__class__.__qualname__} {'_' if self.pressed else '-'} at {self.x}, {self.y}>"
 
 
 class DPad:
