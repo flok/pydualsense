@@ -214,7 +214,16 @@ class pydualsense:
        # print(f'X2: {self.state.trackPadTouch1.X} Y2: {self.state.trackPadTouch1.Y}')
        # print(f'DPAD {self.state.DpadLeft} {self.state.DpadUp} {self.state.DpadRight} {self.state.DpadDown}')
 
-        # TODO: implement gyrometer and accelerometer
+        # accelerometer
+        self.state.accelerometer.X = int.from_bytes(([inReport[16], inReport[17]]), byteorder='little', signed=True)
+        self.state.accelerometer.Y = int.from_bytes(([inReport[18], inReport[19]]), byteorder='little', signed=True)
+        self.state.accelerometer.Z = int.from_bytes(([inReport[20], inReport[21]]), byteorder='little', signed=True)
+        
+         # gyro
+        self.state.gyro.Pitch = int.from_bytes(([inReport[22],inReport[23]]), byteorder='little', signed=True)
+        self.state.gyro.Yaw = int.from_bytes(([inReport[24],inReport[25]]), byteorder='little', signed=True)
+        self.state.gyro.Roll = int.from_bytes(([inReport[26],inReport[27]]), byteorder='little', signed=True)
+        
         # TODO: control mouse with touchpad for fun as DS4Windows
 
 
@@ -320,9 +329,12 @@ class DSState:
         self.DpadUp, self.DpadDown, self.DpadLeft, self.DpadRight = False, False, False, False
         self.L1, self.L2, self.L3, self.R1, self.R2, self.R3, self.R2Btn, self.L2Btn = False, False, False, False, False, False, False, False
         self.share, self.options, self.ps, self.touch1, self.touch2, self.touchBtn, self.touchRight, self.touchLeft = False, False, False, False, False, False, False, False
+        self.micBtn = False
         self.touchFinger1, self.touchFinger2 = False, False
         self.RX, self.RY, self.LX, self.LY = 128,128,128,128
         self.trackPadTouch0, self.trackPadTouch1 = DSTouchpad(), DSTouchpad()
+        self.gyro = DsGyro()
+        self.accelerometer = DsAccelerometer()
 
     def setDPadState(self, dpad_state):
         if dpad_state == 0:
@@ -553,3 +565,22 @@ class DSTrigger:
             raise TypeError('Trigger mode parameter needs to be of type `TriggerModes`')
 
         self.mode = mode
+
+
+class DsGyro:
+    def __init__(self) -> None:
+        """
+        Class represents the Gyro of the controller
+        """
+        self.Pitch = 0
+        self.Yaw = 0
+        self.Roll = 0
+
+class DsAccelerometer:
+    def __init__(self) -> None:
+        """
+        Class represents the Accelerometer of the controller
+        """
+        self.X = 0
+        self.Y = 0
+        self.Z = 0
