@@ -1,14 +1,17 @@
 
 # needed for python > 3.8
-import os, sys
+import os
+import sys
 from sys import platform
 
-if platform.startswith('Windows') and sys.version_info >= (3,8):
+if platform.startswith('Windows') and sys.version_info >= (3, 8):
     os.add_dll_directory(os.getcwd())
 
 import hidapi
 from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType) # type: ignore
 import threading
+
+
 class pydualsense:
 
     def __init__(self, verbose: bool = False) -> None:#
@@ -17,7 +20,6 @@ class pydualsense:
 
         self.leftMotor = 0
         self.rightMotor = 0
-
 
     def init(self):
         """initialize module and device states
@@ -37,7 +39,6 @@ class pydualsense:
             self.input_report_length = 64
             self.output_report_length = 64
 
-
         # thread for receiving and sending
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
@@ -49,11 +50,10 @@ class pydualsense:
             self.input_report_length = 64
             self.output_report_length = 64
             return ConnectionType.USB
-        elif  self.device._device.input_report_length == 78:
+        elif self.device._device.input_report_length == 78:
             self.input_report_length = 78
             self.output_report_length = 78
             return ConnectionType.BT
-
 
     def close(self):
         """
@@ -62,7 +62,6 @@ class pydualsense:
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
-
 
     def __find_device(self) -> hidapi.Device:
         """
@@ -87,8 +86,7 @@ class pydualsense:
             if device.vendor_id == 0x054c and device.product_id == 0x0CE6:
                 detected_device = device
 
-
-        if detected_device == None:
+        if detected_device is None:
             raise Exception('No device detected')
 
         dual_sense = hidapi.Device(vendor_id=detected_device.vendor_id, product_id=detected_device.product_id)
@@ -112,7 +110,6 @@ class pydualsense:
             raise Exception('maximum intensity is 255')
         self.leftMotor = intensity
 
-
     def setRightMotor(self, intensity: int):
         """
         set right motor rumble
@@ -131,7 +128,6 @@ class pydualsense:
             raise Exception('maximum intensity is 255')
         self.rightMotor = intensity
 
-
     def sendReport(self):
         """background thread handling the reading of the device and updating its states
         """
@@ -142,7 +138,6 @@ class pydualsense:
                 print(inReport)
             # decrypt the packet and bind the inputs
             self.readInput(inReport)
-
 
             # prepare new report for device
             outReport = self.prepareReport()
@@ -174,7 +169,6 @@ class pydualsense:
         self.state.cross = (buttonState & (1 << 5)) != 0
         self.state.square = (buttonState & (1 << 4)) != 0
 
-
         # dpad
         dpad_state = buttonState & 0x0F
         self.state.setDPadState(dpad_state)
@@ -194,7 +188,6 @@ class pydualsense:
         self.state.touchBtn = (misc2 & 0x02) != 0
         self.state.micBtn = (misc2 & 0x04) != 0
 
-
         # trackpad touch
         self.state.trackPadTouch0.ID = inReport[33] & 0x7F
         self.state.trackPadTouch0.isActive = (inReport[33] & 0x80) == 0
@@ -207,16 +200,15 @@ class pydualsense:
         self.state.trackPadTouch1.X = ((inReport[39] & 0x0f) << 8) | (inReport[38])
         self.state.trackPadTouch1.Y = ((inReport[40]) << 4) | ((inReport[39] & 0xf0) >> 4)
 
-       # print(f'1Active = {self.state.trackPadTouch0.isActive}')
-       # print(f'X1: {self.state.trackPadTouch0.X} Y2: {self.state.trackPadTouch0.Y}')
+        # print(f'1Active = {self.state.trackPadTouch0.isActive}')
+        # print(f'X1: {self.state.trackPadTouch0.X} Y2: {self.state.trackPadTouch0.Y}')
 
-       # print(f'2Active = {self.state.trackPadTouch1.isActive}')
-       # print(f'X2: {self.state.trackPadTouch1.X} Y2: {self.state.trackPadTouch1.Y}')
-       # print(f'DPAD {self.state.DpadLeft} {self.state.DpadUp} {self.state.DpadRight} {self.state.DpadDown}')
+        # print(f'2Active = {self.state.trackPadTouch1.isActive}')
+        # print(f'X2: {self.state.trackPadTouch1.X} Y2: {self.state.trackPadTouch1.Y}')
+        # print(f'DPAD {self.state.DpadLeft} {self.state.DpadUp} {self.state.DpadRight} {self.state.DpadDown}')
 
         # TODO: implement gyrometer and accelerometer
         # TODO: control mouse with touchpad for fun as DS4Windows
-
 
     def writeReport(self, outReport):
         """
@@ -226,7 +218,6 @@ class pydualsense:
             outReport (list): report to be written to device
         """
         self.device.write(bytes(outReport))
-
 
     def prepareReport(self):
         """
@@ -239,7 +230,6 @@ class pydualsense:
         outReport = [0] * self.output_report_length # create empty list with range of output report
         # packet type
         outReport[0] = 0x2
-
 
         # flags determing what changes this packet will perform
         # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
@@ -270,7 +260,7 @@ class pydualsense:
         # set Micrphone LED, setting doesnt effect microphone settings
         outReport[9] = self.audio.microphone_led # [9]
 
-        outReport[10] = 0x10 if self.audio.microphone_mute == True else 0x00
+        outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
 
         # add right trigger mode + parameters to packet
         outReport[11] = self.triggerR.mode.value
@@ -302,6 +292,7 @@ class pydualsense:
             print(outReport)
         return outReport
 
+
 class DSTouchpad:
     def __init__(self) -> None:
         """
@@ -312,6 +303,7 @@ class DSTouchpad:
         self.X = 0
         self.Y = 0
 
+
 class DSState:
 
     def __init__(self) -> None:
@@ -321,7 +313,7 @@ class DSState:
         self.L1, self.L2, self.L3, self.R1, self.R2, self.R3, self.R2Btn, self.L2Btn = False, False, False, False, False, False, False, False
         self.share, self.options, self.ps, self.touch1, self.touch2, self.touchBtn, self.touchRight, self.touchLeft = False, False, False, False, False, False, False, False
         self.touchFinger1, self.touchFinger2 = False, False
-        self.RX, self.RY, self.LX, self.LY = 128,128,128,128
+        self.RX, self.RY, self.LX, self.LY = 128, 128, 128, 128
         self.trackPadTouch0, self.trackPadTouch1 = DSTouchpad(), DSTouchpad()
 
     def setDPadState(self, dpad_state):
@@ -379,9 +371,9 @@ class DSLight:
     def __init__(self) -> None:
         self.brightness: Brightness = Brightness.low # sets
         self.playerNumber: PlayerID = PlayerID.player1
-        self.ledOption : LedOptions = LedOptions.Both
-        self.pulseOptions : PulseOptions = PulseOptions.Off
-        self.TouchpadColor = (0,0,255)
+        self.ledOption: LedOptions = LedOptions.Both
+        self.pulseOptions: PulseOptions = PulseOptions.Off
+        self.TouchpadColor = (0, 0, 255)
 
     def setLEDOption(self, option: LedOptions):
         """
@@ -425,7 +417,7 @@ class DSLight:
             raise TypeError('Need Brightness type')
         self.brightness = brightness
 
-    def setPlayerID(self, player : PlayerID):
+    def setPlayerID(self, player: PlayerID):
         """
         Sets the PlayerID of the controller with the choosen LEDs.
         The controller has 4 Player states
@@ -440,7 +432,7 @@ class DSLight:
             raise TypeError('Need PlayerID type')
         self.playerNumber = player
 
-    def setColorI(self, r: int , g: int, b: int) -> None:
+    def setColorI(self, r: int, g: int, b: int) -> None:
         """
         Sets the Color around the Touchpad of the controller
 
@@ -458,8 +450,7 @@ class DSLight:
         # check if color is out of bounds
         if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
             raise Exception('colors have values from 0 to 255 only')
-        self.TouchpadColor = (r,g,b)
-
+        self.TouchpadColor = (r, g, b)
 
     def setColorT(self, color: tuple) -> None:
         """
@@ -475,11 +466,11 @@ class DSLight:
         if not isinstance(color, tuple):
             raise TypeError('Color type is tuple')
         # unpack for out of bounds check
-        r,g,b = map(int, color)
+        r, g, b = map(int, color)
         # check if color is out of bounds
         if (r > 255 or g > 255 or b > 255) or (r < 0 or g < 0 or b < 0):
             raise Exception('colors have values from 0 to 255 only')
-        self.TouchpadColor = (r,g,b)
+        self.TouchpadColor = (r, g, b)
 
 
 class DSAudio:
@@ -499,7 +490,7 @@ class DSAudio:
             Exception: false state for the led
         """
         if not isinstance(value, bool):
-           raise TypeError('MicrophoneLED can only be a bool')
+            raise TypeError('MicrophoneLED can only be a bool')
         self.microphone_led = value
 
     def setMicrophoneMute(self, state):
@@ -514,7 +505,7 @@ class DSAudio:
 class DSTrigger:
     def __init__(self) -> None:
         # trigger modes
-        self.mode : TriggerModes = TriggerModes.Off
+        self.mode: TriggerModes = TriggerModes.Off
 
         # force parameters for the triggers
         self.forces = [0 for i in range(7)]
