@@ -18,3 +18,6 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+generate_doc:
+	sphinx-apidoc ../pydualsense -f -o ./source  --ext-autodoc --ext-coverage --ext-todo

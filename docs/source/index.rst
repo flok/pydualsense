@@ -15,5 +15,11 @@ Contents
 
 .. toctree::
    usage
-   pydualsense
-   modules
+   api
+   examples
+
+
+TODOs
+-----
+
+.. todolist::
