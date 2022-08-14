@@ -26,11 +26,11 @@ class Brightness(IntFlag):
 
 
 class PlayerID(IntFlag):
-    player1 = 4
-    player2 = 10
-    player3 = 21
-    player4 = 27
-    all = 31
+    PLAYER_1 = 4
+    PLAYER_2 = 10
+    PLAYER_3 = 21
+    PLAYER_4 = 27
+    ALL = 31
 
 
 class TriggerModes(IntFlag):
@@ -44,4 +44,3 @@ class TriggerModes(IntFlag):
     Pulse_B = 0x2 | 0x04
     Pulse_AB = 0x2 | 0x20 | 0x04
     Calibration = 0xFC
-
