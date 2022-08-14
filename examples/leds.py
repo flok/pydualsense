@@ -6,7 +6,7 @@ dualsense.init()
 # set color around touchpad to red
 dualsense.light.setColorI(255,0,0)
 # mute microphone
-dualsense.audio.setMicrophoneMute(True)
+dualsense.audio.setMicrophoneState(True)
 # set all player 1 indicator on
 dualsense.light.setPlayerID(PlayerID.player1)
 # sleep a little to see the result on the controller

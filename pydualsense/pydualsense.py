@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from sys import platform
@@ -12,11 +13,25 @@ from .event_system import Event
 from copy import deepcopy
 
 
+logger = logging.getLogger()
+FORMAT = '%(asctime)s %(message)s'
+logging.basicConfig(format=FORMAT)
+logger.setLevel(logging.INFO)
+
 class pydualsense:
 
-    def __init__(self, verbose: bool = False) -> None:#
+    def __init__(self, verbose: bool = False) -> None:
+        """
+        initialise the library but dont connect to the controller. call :func:`init() <pydualsense.pydualsense.init>` to connect to the controller
+
+        Args:
+            verbose (bool, optional): display verbose out (debug prints of input and output). Defaults to False.
+        """
         # TODO: maybe add a init function to not automatically allocate controller when class is declared
         self.verbose = verbose
+
+        if self.verbose:
+            logger.setLevel(logging.DEBUG)
 
         self.leftMotor = 0
         self.rightMotor = 0
@@ -25,7 +40,10 @@ class pydualsense:
 
         self.register_available_events()
 
-    def register_available_events(self):
+    def register_available_events(self) -> None:
+        """
+        register all available events that can be used for the controller
+        """
 
         # button events
         self.triangle_pressed = Event()
@@ -70,8 +88,9 @@ class pydualsense:
 
         self.accelerometer_changed = Event()
 
-    def init(self):
-        """initialize module and device states
+    def init(self) -> None:
+        """
+        initialize module and device states. Starts the sendReport background thread at the end
         """
         self.device: hidapi.Device = self.__find_device()
         self.light = DSLight() # control led light of ds
@@ -92,6 +111,14 @@ class pydualsense:
         self.report_thread.start()
 
     def determineConnectionType(self) -> ConnectionType:
+        """
+        Determine the connection type of the controller. eg USB or BT.
+
+        Currently only USB is supported.
+
+        Returns:
+            ConnectionType: Detected connection type of the controller.
+        """
 
         if self.device._device.input_report_length == 64:
             self.input_report_length = 64
@@ -102,17 +129,19 @@ class pydualsense:
             self.output_report_length = 78
             return ConnectionType.BT
 
-    def close(self):
+    def close(self) -> None:
         """
         Stops the report thread and closes the HID device
         """
+        # TODO: reset trigger effect to default
+
         self.ds_thread = False
         self.report_thread.join()
         self.device.close()
 
     def __find_device(self) -> hidapi.Device:
         """
-        find HID device and open it
+        find HID dualsense device and open it
 
         Raises:
             Exception: HIDGuardian detected
@@ -139,7 +168,7 @@ class pydualsense:
         dual_sense = hidapi.Device(vendor_id=detected_device.vendor_id, product_id=detected_device.product_id)
         return dual_sense
 
-    def setLeftMotor(self, intensity: int):
+    def setLeftMotor(self, intensity: int) -> None:
         """
         set left motor rumble
 
@@ -157,7 +186,7 @@ class pydualsense:
             raise Exception('maximum intensity is 255')
         self.leftMotor = intensity
 
-    def setRightMotor(self, intensity: int):
+    def setRightMotor(self, intensity: int) -> None:
         """
         set right motor rumble
 
@@ -175,14 +204,14 @@ class pydualsense:
             raise Exception('maximum intensity is 255')
         self.rightMotor = intensity
 
-    def sendReport(self):
+    def sendReport(self) -> None:
         """background thread handling the reading of the device and updating its states
         """
         while self.ds_thread:
             # read data from the input report of the controller
             inReport = self.device.read(self.input_report_length)
             if self.verbose:
-                print(inReport)
+                logger.debug(inReport)
             # decrypt the packet and bind the inputs
             self.readInput(inReport)
 
@@ -192,7 +221,7 @@ class pydualsense:
             # write the report to the device
             self.writeReport(outReport)
 
-    def readInput(self, inReport):
+    def readInput(self, inReport) -> None:
         """
         read the input from the controller and assign the states
 
@@ -262,6 +291,7 @@ class pydualsense:
             self.last_states = deepcopy(self.state)
             return
 
+        # send all events if neede
         if self.state.circle != self.last_states.circle:
             self.circle_pressed(self.state.circle)
 
@@ -335,15 +365,15 @@ class pydualsense:
                 self.state.gyro.Roll != self.last_states.gyro.Roll:
             self.gyro_changed(self.state.gyro.Pitch, self.state.gyro.Yaw, self.state.gyro.Roll)
 
-        # copy current state into ltemp object to check next cycle if a change occuret
-        # and event trigger is needed
-
+        """
+        copy current state into temp object to check next cycle if a change occuret
+        and event trigger is needed
+        """
         self.last_states = deepcopy(self.state) # copy current state into object to check next time
 
-        # TODO: implement gyrometer and accelerometer
         # TODO: control mouse with touchpad for fun as DS4Windows
 
-    def writeReport(self, outReport):
+    def writeReport(self, outReport) -> None:
         """
         write the report to the device
 
@@ -352,7 +382,7 @@ class pydualsense:
         """
         self.device.write(bytes(outReport))
 
-    def prepareReport(self):
+    def prepareReport(self) -> None:
         """
         prepare the output to be send to the controller
 
@@ -421,12 +451,17 @@ class pydualsense:
         outReport[45] = self.light.TouchpadColor[0]
         outReport[46] = self.light.TouchpadColor[1]
         outReport[47] = self.light.TouchpadColor[2]
+
         if self.verbose:
-            print(outReport)
+            logger.debug(outReport)
+
         return outReport
 
 
 class DSTouchpad:
+    """
+    Dualsense Touchpad class. Contains X and Y position of touch and if the touch isActive
+    """
     def __init__(self) -> None:
         """
         Class represents the Touchpad of the controller
@@ -440,7 +475,9 @@ class DSTouchpad:
 class DSState:
 
     def __init__(self) -> None:
-        self.packerC = 0
+        """
+        All dualsense states (inputs) that can be read. Second method to check if a input is pressed.
+        """
         self.square, self.triangle, self.circle, self.cross = False, False, False, False
         self.DpadUp, self.DpadDown, self.DpadLeft, self.DpadRight = False, False, False, False
         self.L1, self.L2, self.L3, self.R1, self.R2, self.R3, self.R2Btn, self.L2Btn = False, False, False, False, False, False, False, False
@@ -452,7 +489,13 @@ class DSState:
         self.gyro = DSGyro()
         self.accelerometer = DSAccelerometer()
 
-    def setDPadState(self, dpad_state):
+    def setDPadState(self, dpad_state: int):
+        """
+        Sets the dpad state variables according to the integers that was read from the controller
+
+        Args:
+            dpad_state (int): integer number representing the dpad state
+        """
         if dpad_state == 0:
             self.DpadUp = True
             self.DpadDown = False
@@ -611,6 +654,9 @@ class DSLight:
 
 class DSAudio:
     def __init__(self) -> None:
+        """
+        initialize the limited Audio features of the controller
+        """
         self.microphone_mute = 0
         self.microphone_led = 0
 
@@ -629,7 +675,16 @@ class DSAudio:
             raise TypeError('MicrophoneLED can only be a bool')
         self.microphone_led = value
 
-    def setMicrophoneMute(self, state):
+    def setMicrophoneState(self, state: bool):
+        """
+        Set the microphone state and also sets the microphone led accordingle
+
+        Args:
+            state (bool): desired state of the microphone
+
+        Raises:
+            TypeError: state was not a bool
+        """
 
         if not isinstance(state, bool):
             raise TypeError('state needs to be bool')
@@ -639,6 +694,11 @@ class DSAudio:
 
 
 class DSTrigger:
+    """
+    Dualsense trigger class. Allowes for multiple :class:`TriggerModes <pydualsense.enums.TriggerModes>` and multiple forces
+
+    # TODO: make this interface more userfriendly so a developer knows what he is doing
+    """
     def __init__(self) -> None:
         # trigger modes
         self.mode: TriggerModes = TriggerModes.Off
@@ -683,20 +743,20 @@ class DSTrigger:
 
 
 class DSGyro:
+    """
+    Class representing the Gyro2 of the controller
+    """
     def __init__(self) -> None:
-        """
-        Class represents the Gyro of the controller
-        """
         self.Pitch = 0
         self.Yaw = 0
         self.Roll = 0
 
 
 class DSAccelerometer:
+    """
+    Class representing the Accelerometer of the controller
+    """
     def __init__(self) -> None:
-        """
-        Class represents the Accelerometer of the controller
-        """
         self.X = 0
         self.Y = 0
         self.Z = 0
