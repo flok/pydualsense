@@ -11,7 +11,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/flok/pydualsense',
-    author='Florian K',
+    author='Florian (flok) K',
     license='MIT License',
     packages=setuptools.find_packages(),
     install_requires=['hidapi-usb>=0.3', 'cffi']
