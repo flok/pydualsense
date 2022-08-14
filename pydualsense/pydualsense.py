@@ -8,7 +8,7 @@ if platform.startswith('Windows') and sys.version_info >= (3, 8):
 import hidapi
 from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType) # type: ignore
 import threading
-from event_system import Event
+from .event_system import Event
 from copy import deepcopy
 
 
