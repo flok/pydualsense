@@ -332,7 +332,7 @@ class pydualsense:
             self.l1_changed(self.state.L1)
 
         if self.state.L2 != self.last_states.L2:
-            self.l1_changed(self.state.L2)
+            self.l2_changed(self.state.L2)
 
         if self.state.R3 != self.last_states.R3:
             self.r3_changed(self.state.R3)
