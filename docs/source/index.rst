@@ -17,6 +17,7 @@ Contents
    usage
    api
    examples
+   modules
 
 
 TODOs
