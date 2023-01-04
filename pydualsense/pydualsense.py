@@ -415,8 +415,8 @@ class pydualsense:
         # 0x80 ???
         outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
 
-        outReport[3] = self.leftMotor # left low freq motor 0-255 # [3]
-        outReport[4] = self.rightMotor # right low freq motor 0-255 # [4]
+        outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
+        outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
 
         # outReport[5] - outReport[8] audio related
 
