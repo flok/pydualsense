@@ -8,7 +8,7 @@ dualsense.light.setColorI(255,0,0)
 # mute microphone
 dualsense.audio.setMicrophoneState(True)
 # set all player 1 indicator on
-dualsense.light.setPlayerID(PlayerID.player1)
+dualsense.light.setPlayerID(PlayerID.PLAYER_1)
 # sleep a little to see the result on the controller
 # this is not needed in normal usage
 import time; time.sleep(2)
