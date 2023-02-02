@@ -102,9 +102,9 @@ class pydualsense:
         if platform.startswith('Windows'):
             self.conType = self.determineConnectionType() # determine USB or BT connection
         else:
-            # set for usb manually
-            self.input_report_length = 64
-            self.output_report_length = 64
+            # set for BT manually
+            self.input_report_length = 78
+            self.output_report_length = 78
 
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
@@ -120,6 +120,11 @@ class pydualsense:
         Returns:
             ConnectionType: Detected connection type of the controller.
         """
+
+        # hardcode to bluetooth for now
+        self.input_report_length = 78
+        self.output_report_length = 78
+        return ConnectionType.BT
 
         if self.device._device.input_report_length == 64:
             self.input_report_length = 64
@@ -229,6 +234,7 @@ class pydualsense:
         Args:
             inReport (bytearray): read bytearray containing the state of the whole controller
         """
+        states = list(inReport)[1:] # convert bytes to list
         self.states = states
         # states 0 is always 1
         self.state.LX = states[1] - 127
