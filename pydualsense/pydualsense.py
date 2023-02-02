@@ -109,6 +109,7 @@ class pydualsense:
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
+        self.states = None
 
     def determineConnectionType(self) -> ConnectionType:
         """
@@ -228,7 +229,7 @@ class pydualsense:
         Args:
             inReport (bytearray): read bytearray containing the state of the whole controller
         """
-        states = list(inReport) # convert bytes to list
+        self.states = states
         # states 0 is always 1
         self.state.LX = states[1] - 127
         self.state.LY = states[2] - 127
