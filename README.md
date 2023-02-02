@@ -17,7 +17,15 @@ pip install --upgrade pydualsense
 
 ## Linux
 
-On Linux based system you first need to install the hidapi through your package manager of your system.
+On Linux based system you first need to add a udev rule to let the user access the PS5 controller without requiring root privileges.
+
+```bash
+sudo cp 70-ps5-controller.rules /etc/udev/rules.d
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+Then install the hidapi through your package manager of your system.
 
 On an Ubuntu system the package ```libhidapi-dev``` is required.
 
