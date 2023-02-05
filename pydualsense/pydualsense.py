@@ -98,33 +98,34 @@ class pydualsense:
         self.triggerL = DSTrigger() # left trigger
         self.triggerR = DSTrigger() # right trigger
         self.state = DSState() # controller states
-
-        if platform.startswith('Windows'):
-            self.conType = self.determineConnectionType() # determine USB or BT connection
-        else:
-            # set for usb manually
-            self.input_report_length = 64
-            self.output_report_length = 64
-
+        self.conType = self.determineConnectionType() # determine USB or BT connection
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
+        self.states = None
 
     def determineConnectionType(self) -> ConnectionType:
         """
         Determine the connection type of the controller. eg USB or BT.
 
-        Currently only USB is supported.
+        We ask the controller for an input report with a length up to 100 bytes
+        and afterwords check the lenght of the received input report.
+        The connection type determines the length of the report.
+
+        This way of determining is not pretty but it works..
 
         Returns:
             ConnectionType: Detected connection type of the controller.
         """
 
-        if self.device._device.input_report_length == 64:
+        dummy_report = self.device.read(100)
+        input_report_length = len(dummy_report)
+
+        if input_report_length == 64:
             self.input_report_length = 64
             self.output_report_length = 64
             return ConnectionType.USB
-        elif self.device._device.input_report_length == 78:
+        elif input_report_length == 78:
             self.input_report_length = 78
             self.output_report_length = 78
             return ConnectionType.BT
@@ -228,7 +229,15 @@ class pydualsense:
         Args:
             inReport (bytearray): read bytearray containing the state of the whole controller
         """
-        states = list(inReport) # convert bytes to list
+        if self.conType == ConnectionType.BT:
+            # the reports for BT and USB are structured the same,
+            # but there is one more byte at the start of the bluetooth report.
+            # We drop that byte, so that the format matches up again.
+            states = list(inReport)[1:] # convert bytes to list
+        else: # USB
+            states = list(inReport) # convert bytes to list
+
+        self.states = states
         # states 0 is always 1
         self.state.LX = states[1] - 127
         self.state.LY = states[2] - 127
