@@ -12,11 +12,55 @@ import threading
 from .event_system import Event
 from copy import deepcopy
 
+import array
 
 logger = logging.getLogger()
 FORMAT = '%(asctime)s %(message)s'
 logging.basicConfig(format=FORMAT)
 logger.setLevel(logging.INFO)
+
+hashTable = array.array('I', [
+    0xd202ef8d, 0xa505df1b, 0x3c0c8ea1, 0x4b0bbe37, 0xd56f2b94, 0xa2681b02, 0x3b614ab8, 0x4c667a2e,
+    0xdcd967bf, 0xabde5729, 0x32d70693, 0x45d03605, 0xdbb4a3a6, 0xacb39330, 0x35bac28a, 0x42bdf21c,
+    0xcfb5ffe9, 0xb8b2cf7f, 0x21bb9ec5, 0x56bcae53, 0xc8d83bf0, 0xbfdf0b66, 0x26d65adc, 0x51d16a4a,
+    0xc16e77db, 0xb669474d, 0x2f6016f7, 0x58672661, 0xc603b3c2, 0xb1048354, 0x280dd2ee, 0x5f0ae278,
+    0xe96ccf45, 0x9e6bffd3, 0x762ae69, 0x70659eff, 0xee010b5c, 0x99063bca, 0xf6a70, 0x77085ae6,
+    0xe7b74777, 0x90b077e1, 0x9b9265b, 0x7ebe16cd, 0xe0da836e, 0x97ddb3f8, 0xed4e242, 0x79d3d2d4,
+    0xf4dbdf21, 0x83dcefb7, 0x1ad5be0d, 0x6dd28e9b, 0xf3b61b38, 0x84b12bae, 0x1db87a14, 0x6abf4a82,
+    0xfa005713, 0x8d076785, 0x140e363f, 0x630906a9, 0xfd6d930a, 0x8a6aa39c, 0x1363f226, 0x6464c2b0,
+    0xa4deae1d, 0xd3d99e8b, 0x4ad0cf31, 0x3dd7ffa7, 0xa3b36a04, 0xd4b45a92, 0x4dbd0b28, 0x3aba3bbe,
+    0xaa05262f, 0xdd0216b9, 0x440b4703, 0x330c7795, 0xad68e236, 0xda6fd2a0, 0x4366831a, 0x3461b38c,
+    0xb969be79, 0xce6e8eef, 0x5767df55, 0x2060efc3, 0xbe047a60, 0xc9034af6, 0x500a1b4c, 0x270d2bda,
+    0xb7b2364b, 0xc0b506dd, 0x59bc5767, 0x2ebb67f1, 0xb0dff252, 0xc7d8c2c4, 0x5ed1937e, 0x29d6a3e8,
+    0x9fb08ed5, 0xe8b7be43, 0x71beeff9, 0x6b9df6f, 0x98dd4acc, 0xefda7a5a, 0x76d32be0, 0x1d41b76,
+    0x916b06e7, 0xe66c3671, 0x7f6567cb, 0x862575d, 0x9606c2fe, 0xe101f268, 0x7808a3d2, 0xf0f9344,
+    0x82079eb1, 0xf500ae27, 0x6c09ff9d, 0x1b0ecf0b, 0x856a5aa8, 0xf26d6a3e, 0x6b643b84, 0x1c630b12,
+    0x8cdc1683, 0xfbdb2615, 0x62d277af, 0x15d54739, 0x8bb1d29a, 0xfcb6e20c, 0x65bfb3b6, 0x12b88320,
+    0x3fba6cad, 0x48bd5c3b, 0xd1b40d81, 0xa6b33d17, 0x38d7a8b4, 0x4fd09822, 0xd6d9c998, 0xa1def90e,
+    0x3161e49f, 0x4666d409, 0xdf6f85b3, 0xa868b525, 0x360c2086, 0x410b1010, 0xd80241aa, 0xaf05713c,
+    0x220d7cc9, 0x550a4c5f, 0xcc031de5, 0xbb042d73, 0x2560b8d0, 0x52678846, 0xcb6ed9fc, 0xbc69e96a,
+    0x2cd6f4fb, 0x5bd1c46d, 0xc2d895d7, 0xb5dfa541, 0x2bbb30e2, 0x5cbc0074, 0xc5b551ce, 0xb2b26158,
+    0x4d44c65, 0x73d37cf3, 0xeada2d49, 0x9ddd1ddf, 0x3b9887c, 0x74beb8ea, 0xedb7e950, 0x9ab0d9c6,
+    0xa0fc457, 0x7d08f4c1, 0xe401a57b, 0x930695ed, 0xd62004e, 0x7a6530d8, 0xe36c6162, 0x946b51f4,
+    0x19635c01, 0x6e646c97, 0xf76d3d2d, 0x806a0dbb, 0x1e0e9818, 0x6909a88e, 0xf000f934, 0x8707c9a2,
+    0x17b8d433, 0x60bfe4a5, 0xf9b6b51f, 0x8eb18589, 0x10d5102a, 0x67d220bc, 0xfedb7106, 0x89dc4190,
+    0x49662d3d, 0x3e611dab, 0xa7684c11, 0xd06f7c87, 0x4e0be924, 0x390cd9b2, 0xa0058808, 0xd702b89e,
+    0x47bda50f, 0x30ba9599, 0xa9b3c423, 0xdeb4f4b5, 0x40d06116, 0x37d75180, 0xaede003a, 0xd9d930ac,
+    0x54d13d59, 0x23d60dcf, 0xbadf5c75, 0xcdd86ce3, 0x53bcf940, 0x24bbc9d6, 0xbdb2986c, 0xcab5a8fa,
+    0x5a0ab56b, 0x2d0d85fd, 0xb404d447, 0xc303e4d1, 0x5d677172, 0x2a6041e4, 0xb369105e, 0xc46e20c8,
+    0x72080df5, 0x50f3d63, 0x9c066cd9, 0xeb015c4f, 0x7565c9ec, 0x262f97a, 0x9b6ba8c0, 0xec6c9856,
+    0x7cd385c7, 0xbd4b551, 0x92dde4eb, 0xe5dad47d, 0x7bbe41de, 0xcb97148, 0x95b020f2, 0xe2b71064,
+    0x6fbf1d91, 0x18b82d07, 0x81b17cbd, 0xf6b64c2b, 0x68d2d988, 0x1fd5e91e, 0x86dcb8a4, 0xf1db8832,
+    0x616495a3, 0x1663a535, 0x8f6af48f, 0xf86dc419, 0x660951ba, 0x110e612c, 0x88073096, 0xff000000
+])
+
+def compute(buffer, len):
+    result = 0xeada2d49
+    
+    for i in range(0, len):
+        result = hashTable[(result&0xFF)^(buffer[i]&0xFF)]^(result>>8)
+        
+    return result
 
 class pydualsense:
 
@@ -398,68 +442,119 @@ class pydualsense:
         Returns:
             list: report to send to controller
         """
+        if self.conType == ConnectionType.USB:
+            outReport = [0] * self.output_report_length # create empty list with range of output report
+            # packet type
+            outReport[0] = 0x2
 
-        outReport = [0] * self.output_report_length # create empty list with range of output report
-        # packet type
-        outReport[0] = 0x2
+            # flags determing what changes this packet will perform
+            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
+            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+            # 0x04 set the right trigger motor
+            # 0x08 set the left trigger motor
+            # 0x10 modification of audio volume
+            # 0x20 toggling of internal speaker while headset is connected
+            # 0x40 modification of microphone volume
+            outReport[1] = 0xff # [1]
 
-        # flags determing what changes this packet will perform
-        # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-        # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-        # 0x04 set the right trigger motor
-        # 0x08 set the left trigger motor
-        # 0x10 modification of audio volume
-        # 0x20 toggling of internal speaker while headset is connected
-        # 0x40 modification of microphone volume
-        outReport[1] = 0xff # [1]
+            # further flags determining what changes this packet will perform
+            # 0x01 toggling microphone LED
+            # 0x02 toggling audio/mic mute
+            # 0x04 toggling LED strips on the sides of the touchpad
+            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
+            # 0x10 toggling white player indicator LEDs below touchpad
+            # 0x20 ???
+            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
+            # 0x80 ???
+            outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
 
-        # further flags determining what changes this packet will perform
-        # 0x01 toggling microphone LED
-        # 0x02 toggling audio/mic mute
-        # 0x04 toggling LED strips on the sides of the touchpad
-        # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-        # 0x10 toggling white player indicator LEDs below touchpad
-        # 0x20 ???
-        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
-        # 0x80 ???
-        outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+            outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
+            outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
 
-        outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
-        outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
+            # outReport[5] - outReport[8] audio related
 
-        # outReport[5] - outReport[8] audio related
+            # set Micrphone LED, setting doesnt effect microphone settings
+            outReport[9] = self.audio.microphone_led # [9]
 
-        # set Micrphone LED, setting doesnt effect microphone settings
-        outReport[9] = self.audio.microphone_led # [9]
+            outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
 
-        outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
+            # add right trigger mode + parameters to packet
+            outReport[11] = self.triggerR.mode.value
+            outReport[12] = self.triggerR.forces[0]
+            outReport[13] = self.triggerR.forces[1]
+            outReport[14] = self.triggerR.forces[2]
+            outReport[15] = self.triggerR.forces[3]
+            outReport[16] = self.triggerR.forces[4]
+            outReport[17] = self.triggerR.forces[5]
+            outReport[20] = self.triggerR.forces[6]
 
-        # add right trigger mode + parameters to packet
-        outReport[11] = self.triggerR.mode.value
-        outReport[12] = self.triggerR.forces[0]
-        outReport[13] = self.triggerR.forces[1]
-        outReport[14] = self.triggerR.forces[2]
-        outReport[15] = self.triggerR.forces[3]
-        outReport[16] = self.triggerR.forces[4]
-        outReport[17] = self.triggerR.forces[5]
-        outReport[20] = self.triggerR.forces[6]
+            outReport[22] = self.triggerL.mode.value
+            outReport[23] = self.triggerL.forces[0]
+            outReport[24] = self.triggerL.forces[1]
+            outReport[25] = self.triggerL.forces[2]
+            outReport[26] = self.triggerL.forces[3]
+            outReport[27] = self.triggerL.forces[4]
+            outReport[28] = self.triggerL.forces[5]
+            outReport[31] = self.triggerL.forces[6]
 
-        outReport[22] = self.triggerL.mode.value
-        outReport[23] = self.triggerL.forces[0]
-        outReport[24] = self.triggerL.forces[1]
-        outReport[25] = self.triggerL.forces[2]
-        outReport[26] = self.triggerL.forces[3]
-        outReport[27] = self.triggerL.forces[4]
-        outReport[28] = self.triggerL.forces[5]
-        outReport[31] = self.triggerL.forces[6]
+            outReport[39] = self.light.ledOption.value
+            outReport[42] = self.light.pulseOptions.value
+            outReport[43] = self.light.brightness.value
+            outReport[44] = self.light.playerNumber.value
+            outReport[45] = self.light.TouchpadColor[0]
+            outReport[46] = self.light.TouchpadColor[1]
+            outReport[47] = self.light.TouchpadColor[2]
+        
+        elif self.conType == ConnectionType.BT:
+            outReport = [0]*self.output_report_length
 
-        outReport[39] = self.light.ledOption.value
-        outReport[42] = self.light.pulseOptions.value
-        outReport[43] = self.light.brightness.value
-        outReport[44] = self.light.playerNumber.value
-        outReport[45] = self.light.TouchpadColor[0]
-        outReport[46] = self.light.TouchpadColor[1]
-        outReport[47] = self.light.TouchpadColor[2]
+            outReport[0] = 0x31
+            outReport[1] = 0x02
+
+            outReport[2] = 0xff
+
+            outReport[3] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+
+            outReport[4] = self.rightMotor # right low freq motor 0-255 # [4]
+            outReport[5] = self.leftMotor # left low freq motor 0-255 # [5]
+
+            outReport[10] = self.audio.microphone_led # [10]
+
+            outReport[11] = 0x10 if self.audio.microphone_mute is True else 0x00
+
+            # add right trigger mode + parameters to packet
+            outReport[12] = self.triggerR.mode.value
+            outReport[13] = self.triggerR.forces[0]
+            outReport[14] = self.triggerR.forces[1]
+            outReport[15] = self.triggerR.forces[2]
+            outReport[16] = self.triggerR.forces[3]
+            outReport[17] = self.triggerR.forces[4]
+            outReport[18] = self.triggerR.forces[5]
+            outReport[21] = self.triggerR.forces[6]
+
+            outReport[23] = self.triggerL.mode.value
+            outReport[24] = self.triggerL.forces[0]
+            outReport[25] = self.triggerL.forces[1]
+            outReport[26] = self.triggerL.forces[2]
+            outReport[27] = self.triggerL.forces[3]
+            outReport[28] = self.triggerL.forces[4]
+            outReport[29] = self.triggerL.forces[5]
+            outReport[32] = self.triggerL.forces[6]
+
+            outReport[40] = self.light.ledOption.value
+            outReport[43] = self.light.pulseOptions.value
+            outReport[44] = self.light.brightness.value
+            outReport[45] = self.light.playerNumber.value
+            outReport[46] = self.light.TouchpadColor[0]
+            outReport[47] = self.light.TouchpadColor[1]
+            outReport[48] = self.light.TouchpadColor[2]
+
+            crcChecksum = compute(outReport, 74)
+
+            outReport[74] = (crcChecksum & 0x000000FF)
+            outReport[75] = (crcChecksum & 0x0000FF00) >> 8
+            outReport[76] = (crcChecksum & 0x00FF0000) >> 16
+            outReport[77] = (crcChecksum & 0xFF000000) >> 24
 
         if self.verbose:
             logger.debug(outReport)
