@@ -274,26 +274,26 @@ class pydualsense:
         self.state.micBtn = (misc2 & 0x04) != 0
 
         # trackpad touch
-        self.state.trackPadTouch0.ID = inReport[33] & 0x7F
-        self.state.trackPadTouch0.isActive = (inReport[33] & 0x80) == 0
-        self.state.trackPadTouch0.X = ((inReport[35] & 0x0f) << 8) | (inReport[34])
-        self.state.trackPadTouch0.Y = ((inReport[36]) << 4) | ((inReport[35] & 0xf0) >> 4)
+        self.state.trackPadTouch0.ID = states[33] & 0x7F
+        self.state.trackPadTouch0.isActive = (states[33] & 0x80) == 0
+        self.state.trackPadTouch0.X = ((states[35] & 0x0f) << 8) | (states[34])
+        self.state.trackPadTouch0.Y = ((states[36]) << 4) | ((states[35] & 0xf0) >> 4)
 
         # trackpad touch
-        self.state.trackPadTouch1.ID = inReport[37] & 0x7F
-        self.state.trackPadTouch1.isActive = (inReport[37] & 0x80) == 0
-        self.state.trackPadTouch1.X = ((inReport[39] & 0x0f) << 8) | (inReport[38])
-        self.state.trackPadTouch1.Y = ((inReport[40]) << 4) | ((inReport[39] & 0xf0) >> 4)
+        self.state.trackPadTouch1.ID = states[37] & 0x7F
+        self.state.trackPadTouch1.isActive = (states[37] & 0x80) == 0
+        self.state.trackPadTouch1.X = ((states[39] & 0x0f) << 8) | (states[38])
+        self.state.trackPadTouch1.Y = ((states[40]) << 4) | ((states[39] & 0xf0) >> 4)
+
+        # gyro
+        self.state.gyro.Pitch = int.from_bytes(([states[16], states[17]]), byteorder='little', signed=True)
+        self.state.gyro.Yaw = int.from_bytes(([states[18], states[19]]), byteorder='little', signed=True)
+        self.state.gyro.Roll = int.from_bytes(([states[20], states[21]]), byteorder='little', signed=True)
 
         # accelerometer
-        self.state.accelerometer.X = int.from_bytes(([inReport[16], inReport[17]]), byteorder='little', signed=True)
-        self.state.accelerometer.Y = int.from_bytes(([inReport[18], inReport[19]]), byteorder='little', signed=True)
-        self.state.accelerometer.Z = int.from_bytes(([inReport[20], inReport[21]]), byteorder='little', signed=True)
-
-        # gyrometer
-        self.state.gyro.Pitch = int.from_bytes(([inReport[22], inReport[23]]), byteorder='little', signed=True)
-        self.state.gyro.Yaw = int.from_bytes(([inReport[24], inReport[25]]), byteorder='little', signed=True)
-        self.state.gyro.Roll = int.from_bytes(([inReport[26], inReport[27]]), byteorder='little', signed=True)
+        self.state.accelerometer.X = int.from_bytes(([states[22], states[23]]), byteorder='little', signed=True)
+        self.state.accelerometer.Y = int.from_bytes(([states[24], states[25]]), byteorder='little', signed=True)
+        self.state.accelerometer.Z = int.from_bytes(([states[26], states[27]]), byteorder='little', signed=True)
 
         # first call we dont have a "last state" so we create if with the first occurence
         if self.last_states is None:
