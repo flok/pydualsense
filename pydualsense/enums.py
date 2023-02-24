@@ -44,3 +44,15 @@ class TriggerModes(IntFlag):
     Pulse_B = 0x2 | 0x04
     Pulse_AB = 0x2 | 0x20 | 0x04
     Calibration = 0xFC
+
+
+class BatteryState(IntFlag):
+    POWER_SUPPLY_STATUS_DISCHARGING = 0x0
+    POWER_SUPPLY_STATUS_CHARGING = 0x1
+    POWER_SUPPLY_STATUS_FULL = 0x2
+    POWER_SUPPLY_STATUS_NOT_CHARGING = 0xb
+    POWER_SUPPLY_STATUS_ERROR = 0xf
+    POWER_SUPPLY_TEMP_OR_VOLTAGE_OUT_OF_RANGE = 0xa
+    POWER_SUPPLY_STATUS_UNKNOWN = 0x0
+
+

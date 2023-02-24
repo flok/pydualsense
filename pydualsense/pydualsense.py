@@ -7,7 +7,7 @@ if platform.startswith('Windows') and sys.version_info >= (3, 8):
     os.add_dll_directory(os.getcwd())
 
 import hidapi
-from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType) # type: ignore
+from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType, BatteryState) # type: ignore
 import threading
 from .event_system import Event
 from copy import deepcopy
@@ -19,6 +19,17 @@ logging.basicConfig(format=FORMAT)
 logger.setLevel(logging.INFO)
 
 class pydualsense:
+    # Bluetooth Checksum seeds
+    INPUT_CRC_SEED = b'\xa1'
+    OUTPUT_CRC_SEED = b'\xa2'
+    # Feature report not implemented (I don't think?)
+    FEATURE_CRC_SEED = b'\xa2'
+
+    # Report ID Constants
+    INPUT_REPORT_USB = 0x01
+    INPUT_REPORT_BT = 0x31
+    OUTPUT_REPORT_USB = 0x02
+    OUTPUT_REPORT_BT = 0x31
 
     def __init__(self, verbose: bool = False) -> None:
         """
@@ -99,6 +110,7 @@ class pydualsense:
         self.triggerR = DSTrigger() # right trigger
         self.state = DSState() # controller states
         self.conType = self.determineConnectionType() # determine USB or BT connection
+        self.battery = DSBattery()
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
@@ -128,6 +140,7 @@ class pydualsense:
         elif input_report_length == 78:
             self.input_report_length = 78
             self.output_report_length = 78
+            self.output_report_seq_id = 0x0
             return ConnectionType.BT
 
     def close(self) -> None:
@@ -168,6 +181,23 @@ class pydualsense:
 
         dual_sense = hidapi.Device(vendor_id=detected_device.vendor_id, product_id=detected_device.product_id)
         return dual_sense
+
+    def add_checksum(self, data: list) -> list:
+        from binascii import crc32
+        crc32_result = crc32(pydualsense.OUTPUT_CRC_SEED)
+        crc32_result = crc32(bytearray(data[:-4]), crc32_result)
+        checksum_bytes = crc32_result.to_bytes(4, byteorder='little')
+        data[-4:] = checksum_bytes
+        return data
+
+    def validate_checksum(self, data: list | bytearray) -> bool:
+        from binascii import crc32
+        if isinstance(data, list):
+            data = bytearray(data)
+        crc32_result = crc32(pydualsense.INPUT_CRC_SEED)
+        crc32_result = crc32(data[:-4], crc32_result)
+        checksum_bytes = crc32_result.to_bytes(4, byteorder='little')
+        return checksum_bytes == bytes(data[-4:])
 
     def setLeftMotor(self, intensity: int) -> None:
         """
@@ -223,22 +253,27 @@ class pydualsense:
             self.writeReport(outReport)
 
     def readInput(self, inReport) -> None:
+        if self.conType == ConnectionType.BT:
+            # First validate the report and skip if it's invalid
+            if not self.validate_checksum(inReport):
+                logger.warning('checksum failed')
+                return
+            # Bluetooth report comes prefixed with a tag byte. The meaning is unclear.
+            # Dropping the byte shifts us to the same common report format as USB
+            states = list(inReport)[1:]  # convert bytes to list
+
+        else:  # USB
+            states = list(inReport)  # convert bytes to list
+
+        # Common report size is USB report size less the report ID (i.e. 62 bytes)
+        self.states = states
+        # states 0 is always 1
         """
         read the input from the controller and assign the states
 
         Args:
             inReport (bytearray): read bytearray containing the state of the whole controller
         """
-        if self.conType == ConnectionType.BT:
-            # the reports for BT and USB are structured the same,
-            # but there is one more byte at the start of the bluetooth report.
-            # We drop that byte, so that the format matches up again.
-            states = list(inReport)[1:] # convert bytes to list
-        else: # USB
-            states = list(inReport) # convert bytes to list
-
-        self.states = states
-        # states 0 is always 1
         self.state.LX = states[1] - 127
         self.state.LY = states[2] - 127
         self.state.RX = states[3] - 127
@@ -294,6 +329,10 @@ class pydualsense:
         self.state.gyro.Pitch = int.from_bytes(([inReport[22], inReport[23]]), byteorder='little', signed=True)
         self.state.gyro.Yaw = int.from_bytes(([inReport[24], inReport[25]]), byteorder='little', signed=True)
         self.state.gyro.Roll = int.from_bytes(([inReport[26], inReport[27]]), byteorder='little', signed=True)
+
+        battery = states[53]
+        self.battery.State = BatteryState((battery & 0xF0) >> 4)
+        self.battery.Level = min((battery & 0x0F) * 10 + 5, 100)
 
         # first call we dont have a "last state" so we create if with the first occurence
         if self.last_states is None:
@@ -391,6 +430,28 @@ class pydualsense:
         """
         self.device.write(bytes(outReport))
 
+    def flag1(self, muteMicEnable=False, powerSaveEnable=False, lightBarControl=False, releaseLEDs=False,
+              playerIndicatorControl=False):
+        output = 0
+        output = output | (muteMicEnable << 0)
+        output = output | (powerSaveEnable << 1)
+        output = output | (lightBarControl << 2)
+        output = output | (releaseLEDs << 3)
+        output = output | (playerIndicatorControl << 4)
+        return output
+
+    def flag2(self, lightBarSetupEnable=False, compatibleVibration=False):
+        output = 0
+        output = output | (lightBarSetupEnable << 0)
+        output = output | (compatibleVibration << 1)
+        return output
+
+    def flag0(self, compatibleVibration=False, hapticsSelect=False):
+        output = 0
+        output = output | (compatibleVibration << 1)
+        output = output | (hapticsSelect << 2)
+        return output
+
     def prepareReport(self) -> None:
         """
         prepare the output to be send to the controller
@@ -399,10 +460,20 @@ class pydualsense:
             list: report to send to controller
         """
 
-        outReport = [0] * self.output_report_length # create empty list with range of output report
+        outReport = [0] * self.output_report_length  # create empty list with range of output report
         # packet type
-        outReport[0] = 0x2
+        if self.conType == ConnectionType.BT:
+            # ReportID
+            outReport[0] = pydualsense.OUTPUT_REPORT_BT
+            # Sequence Tag
+            outReport[1] = (self.output_report_seq_id << 4) | 0x00
+            self.output_report_seq_id = (self.output_report_seq_id + 1) % 16
+            # Tag. Note: This is just a magic number :(
+            outReport[2] = 0x10
+        else:
+            outReport[0] = pydualsense.OUTPUT_REPORT_USB
 
+        outReportCommon = [0] * 47
         # flags determing what changes this packet will perform
         # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
         # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
@@ -411,7 +482,7 @@ class pydualsense:
         # 0x10 modification of audio volume
         # 0x20 toggling of internal speaker while headset is connected
         # 0x40 modification of microphone volume
-        outReport[1] = 0xff # [1]
+        outReportCommon[0] = self.flag0(True, True)
 
         # further flags determining what changes this packet will perform
         # 0x01 toggling microphone LED
@@ -422,45 +493,54 @@ class pydualsense:
         # 0x20 ???
         # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
         # 0x80 ???
-        outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+        outReportCommon[1] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+        # Function below should control the flags, but probably makes sense to properly implement
+        # rather than just toggling everything on?
+        # outReportCommon[1] = self.flag1(True, True, True, False, True)
+        outReportCommon[2] = self.rightMotor  # right low freq motor 0-255 # [3]
+        outReportCommon[3] = self.leftMotor  # left low freq motor 0-255 # [4]
 
-        outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
-        outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
-
-        # outReport[5] - outReport[8] audio related
+        # outReport[4] - outReport[7] Audio Reserved
 
         # set Micrphone LED, setting doesnt effect microphone settings
-        outReport[9] = self.audio.microphone_led # [9]
-
-        outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
+        outReportCommon[8] = self.audio.microphone_led  # [9]
+        # outReportCommon[9] Power save control? Whatever that is...
+        outReportCommon[11] = 0x10 if self.audio.microphone_mute is True else 0x00
 
         # add right trigger mode + parameters to packet
-        outReport[11] = self.triggerR.mode.value
-        outReport[12] = self.triggerR.forces[0]
-        outReport[13] = self.triggerR.forces[1]
-        outReport[14] = self.triggerR.forces[2]
-        outReport[15] = self.triggerR.forces[3]
-        outReport[16] = self.triggerR.forces[4]
-        outReport[17] = self.triggerR.forces[5]
-        outReport[20] = self.triggerR.forces[6]
+        outReportCommon[12] = self.triggerR.mode.value
+        outReportCommon[13] = self.triggerR.forces[0]
+        outReportCommon[14] = self.triggerR.forces[1]
+        outReportCommon[15] = self.triggerR.forces[2]
+        outReportCommon[16] = self.triggerR.forces[3]
+        outReportCommon[17] = self.triggerR.forces[4]
+        outReportCommon[18] = self.triggerR.forces[5]
+        outReportCommon[21] = self.triggerR.forces[6]
 
-        outReport[22] = self.triggerL.mode.value
-        outReport[23] = self.triggerL.forces[0]
-        outReport[24] = self.triggerL.forces[1]
-        outReport[25] = self.triggerL.forces[2]
-        outReport[26] = self.triggerL.forces[3]
-        outReport[27] = self.triggerL.forces[4]
-        outReport[28] = self.triggerL.forces[5]
-        outReport[31] = self.triggerL.forces[6]
+        outReportCommon[23] = self.triggerL.mode.value
+        outReportCommon[24] = self.triggerL.forces[0]
+        outReportCommon[25] = self.triggerL.forces[1]
+        outReportCommon[26] = self.triggerL.forces[2]
+        outReportCommon[27] = self.triggerL.forces[3]
+        outReportCommon[28] = self.triggerL.forces[4]
+        outReportCommon[29] = self.triggerL.forces[5]
+        outReportCommon[32] = self.triggerL.forces[6]
 
-        outReport[39] = self.light.ledOption.value
-        outReport[42] = self.light.pulseOptions.value
-        outReport[43] = self.light.brightness.value
-        outReport[44] = self.light.playerNumber.value
-        outReport[45] = self.light.TouchpadColor[0]
-        outReport[46] = self.light.TouchpadColor[1]
-        outReport[47] = self.light.TouchpadColor[2]
+        outReportCommon[39] = self.flag2(True, True)
+        outReportCommon[40] = self.light.ledOption.value
+        outReportCommon[41] = self.light.pulseOptions.value
+        outReportCommon[42] = self.light.brightness.value
+        outReportCommon[43] = self.light.playerNumber.value
+        outReportCommon[44] = self.light.TouchpadColor[0]
+        outReportCommon[45] = self.light.TouchpadColor[1]
+        outReportCommon[46] = self.light.TouchpadColor[2]
 
+        if self.conType == ConnectionType.BT:
+            outReport[3:50] = outReportCommon
+            outReport = self.add_checksum(outReport)
+
+        else:
+            outReport[1:48] = outReportCommon
         if self.verbose:
             logger.debug(outReport)
 
@@ -765,7 +845,16 @@ class DSAccelerometer:
     """
     Class representing the Accelerometer of the controller
     """
+
     def __init__(self) -> None:
         self.X = 0
         self.Y = 0
         self.Z = 0
+
+class DSBattery:
+    """
+    Class representing the Battery of the controller
+    """
+    def __init__(self) -> None:
+        self.State = BatteryState.POWER_SUPPLY_STATUS_UNKNOWN
+        self.Level = 0
