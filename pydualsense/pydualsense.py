@@ -7,9 +7,10 @@ if platform.startswith('Windows') and sys.version_info >= (3, 8):
     os.add_dll_directory(os.getcwd())
 
 import hidapi
-from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType) # type: ignore
+from .enums import (LedOptions, PlayerID, PulseOptions, TriggerModes, Brightness, ConnectionType, BatteryState) # type: ignore
 import threading
 from .event_system import Event
+from .checksum import compute
 from copy import deepcopy
 
 
@@ -19,6 +20,10 @@ logging.basicConfig(format=FORMAT)
 logger.setLevel(logging.INFO)
 
 class pydualsense:
+
+
+    OUTPUT_REPORT_USB = 0x02
+    OUTPUT_REPORT_BT = 0x31
 
     def __init__(self, verbose: bool = False) -> None:
         """
@@ -98,6 +103,7 @@ class pydualsense:
         self.triggerL = DSTrigger() # left trigger
         self.triggerR = DSTrigger() # right trigger
         self.state = DSState() # controller states
+        self.battery = DSBattery()
         self.conType = self.determineConnectionType() # determine USB or BT connection
         self.ds_thread = True
         self.report_thread = threading.Thread(target=self.sendReport)
@@ -295,6 +301,11 @@ class pydualsense:
         self.state.gyro.Yaw = int.from_bytes(([inReport[24], inReport[25]]), byteorder='little', signed=True)
         self.state.gyro.Roll = int.from_bytes(([inReport[26], inReport[27]]), byteorder='little', signed=True)
 
+        # from kit-nya
+        battery = states[53]
+        self.battery.State = BatteryState((battery & 0xF0) >> 4)
+        self.battery.Level = min((battery & 0x0F) * 10 + 5, 100)
+
         # first call we dont have a "last state" so we create if with the first occurence
         if self.last_states is None:
             self.last_states = deepcopy(self.state)
@@ -399,67 +410,141 @@ class pydualsense:
             list: report to send to controller
         """
 
-        outReport = [0] * self.output_report_length # create empty list with range of output report
-        # packet type
-        outReport[0] = 0x2
+        if self.conType == ConnectionType.USB:
+            outReport = [0] * self.output_report_length # create empty list with range of output report
+            # packet type
+            outReport[0] = self.OUTPUT_REPORT_USB
 
-        # flags determing what changes this packet will perform
-        # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
-        # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
-        # 0x04 set the right trigger motor
-        # 0x08 set the left trigger motor
-        # 0x10 modification of audio volume
-        # 0x20 toggling of internal speaker while headset is connected
-        # 0x40 modification of microphone volume
-        outReport[1] = 0xff # [1]
+            # flags determing what changes this packet will perform
+            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
+            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+            # 0x04 set the right trigger motor
+            # 0x08 set the left trigger motor
+            # 0x10 modification of audio volume
+            # 0x20 toggling of internal speaker while headset is connected
+            # 0x40 modification of microphone volume
+            outReport[1] = 0xff # [1]
 
-        # further flags determining what changes this packet will perform
-        # 0x01 toggling microphone LED
-        # 0x02 toggling audio/mic mute
-        # 0x04 toggling LED strips on the sides of the touchpad
-        # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
-        # 0x10 toggling white player indicator LEDs below touchpad
-        # 0x20 ???
-        # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
-        # 0x80 ???
-        outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+            # further flags determining what changes this packet will perform
+            # 0x01 toggling microphone LED
+            # 0x02 toggling audio/mic mute
+            # 0x04 toggling LED strips on the sides of the touchpad
+            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
+            # 0x10 toggling white player indicator LEDs below touchpad
+            # 0x20 ???
+            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
+            # 0x80 ???
+            outReport[2] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
 
-        outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
-        outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
+            outReport[3] = self.rightMotor # right low freq motor 0-255 # [3]
+            outReport[4] = self.leftMotor # left low freq motor 0-255 # [4]
 
-        # outReport[5] - outReport[8] audio related
+            # outReport[5] - outReport[8] audio related
 
-        # set Micrphone LED, setting doesnt effect microphone settings
-        outReport[9] = self.audio.microphone_led # [9]
+            # set Micrphone LED, setting doesnt effect microphone settings
+            outReport[9] = self.audio.microphone_led # [9]
 
-        outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
+            outReport[10] = 0x10 if self.audio.microphone_mute is True else 0x00
 
-        # add right trigger mode + parameters to packet
-        outReport[11] = self.triggerR.mode.value
-        outReport[12] = self.triggerR.forces[0]
-        outReport[13] = self.triggerR.forces[1]
-        outReport[14] = self.triggerR.forces[2]
-        outReport[15] = self.triggerR.forces[3]
-        outReport[16] = self.triggerR.forces[4]
-        outReport[17] = self.triggerR.forces[5]
-        outReport[20] = self.triggerR.forces[6]
+            # add right trigger mode + parameters to packet
+            outReport[11] = self.triggerR.mode.value
+            outReport[12] = self.triggerR.forces[0]
+            outReport[13] = self.triggerR.forces[1]
+            outReport[14] = self.triggerR.forces[2]
+            outReport[15] = self.triggerR.forces[3]
+            outReport[16] = self.triggerR.forces[4]
+            outReport[17] = self.triggerR.forces[5]
+            outReport[20] = self.triggerR.forces[6]
 
-        outReport[22] = self.triggerL.mode.value
-        outReport[23] = self.triggerL.forces[0]
-        outReport[24] = self.triggerL.forces[1]
-        outReport[25] = self.triggerL.forces[2]
-        outReport[26] = self.triggerL.forces[3]
-        outReport[27] = self.triggerL.forces[4]
-        outReport[28] = self.triggerL.forces[5]
-        outReport[31] = self.triggerL.forces[6]
+            outReport[22] = self.triggerL.mode.value
+            outReport[23] = self.triggerL.forces[0]
+            outReport[24] = self.triggerL.forces[1]
+            outReport[25] = self.triggerL.forces[2]
+            outReport[26] = self.triggerL.forces[3]
+            outReport[27] = self.triggerL.forces[4]
+            outReport[28] = self.triggerL.forces[5]
+            outReport[31] = self.triggerL.forces[6]
 
-        outReport[39] = self.light.ledOption.value
-        outReport[42] = self.light.pulseOptions.value
-        outReport[43] = self.light.brightness.value
-        outReport[44] = self.light.playerNumber.value
-        outReport[45] = self.light.TouchpadColor[0]
-        outReport[46] = self.light.TouchpadColor[1]
-        outReport[47] = self.light.TouchpadColor[2]
+            outReport[39] = self.light.ledOption.value
+            outReport[42] = self.light.pulseOptions.value
+            outReport[43] = self.light.brightness.value
+            outReport[44] = self.light.playerNumber.value
+            outReport[45] = self.light.TouchpadColor[0]
+            outReport[46] = self.light.TouchpadColor[1]
+            outReport[47] = self.light.TouchpadColor[2]
+
+        elif self.conType == ConnectionType.BT:
+
+            outReport = [0] * self.output_report_length # create empty list with range of output report
+            # packet type
+            outReport[0] = self.OUTPUT_REPORT_BT # bt type
+
+            outReport[1] = 0x02
+
+            # flags determing what changes this packet will perform
+            # 0x01 set the main motors (also requires flag 0x02); setting this by itself will allow rumble to gracefully terminate and then re-enable audio haptics, whereas not setting it will kill the rumble instantly and re-enable audio haptics.
+            # 0x02 set the main motors (also requires flag 0x01; without bit 0x01 motors are allowed to time out without re-enabling audio haptics)
+            # 0x04 set the right trigger motor
+            # 0x08 set the left trigger motor
+            # 0x10 modification of audio volume
+            # 0x20 toggling of internal speaker while headset is connected
+            # 0x40 modification of microphone volume
+            outReport[2] = 0xff # [1]
+
+            # further flags determining what changes this packet will perform
+            # 0x01 toggling microphone LED
+            # 0x02 toggling audio/mic mute
+            # 0x04 toggling LED strips on the sides of the touchpad
+            # 0x08 will actively turn all LEDs off? Convenience flag? (if so, third parties might not support it properly)
+            # 0x10 toggling white player indicator LEDs below touchpad
+            # 0x20 ???
+            # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
+            # 0x80 ???
+            outReport[3] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+
+            outReport[4] = self.rightMotor # right low freq motor 0-255 # [3]
+            outReport[5] = self.leftMotor # left low freq motor 0-255 # [4]
+
+            # outReport[5] - outReport[8] audio related
+
+            # set Micrphone LED, setting doesnt effect microphone settings
+            outReport[10] = self.audio.microphone_led # [9]
+
+            outReport[11] = 0x10 if self.audio.microphone_mute is True else 0x00
+
+            # add right trigger mode + parameters to packet
+            outReport[12] = self.triggerR.mode.value
+            outReport[13] = self.triggerR.forces[0]
+            outReport[14] = self.triggerR.forces[1]
+            outReport[15] = self.triggerR.forces[2]
+            outReport[16] = self.triggerR.forces[3]
+            outReport[17] = self.triggerR.forces[4]
+            outReport[18] = self.triggerR.forces[5]
+            outReport[21] = self.triggerR.forces[6]
+
+            outReport[23] = self.triggerL.mode.value
+            outReport[24] = self.triggerL.forces[0]
+            outReport[25] = self.triggerL.forces[1]
+            outReport[26] = self.triggerL.forces[2]
+            outReport[27] = self.triggerL.forces[3]
+            outReport[28] = self.triggerL.forces[4]
+            outReport[29] = self.triggerL.forces[5]
+            outReport[32] = self.triggerL.forces[6]
+
+            outReport[40] = self.light.ledOption.value
+            outReport[43] = self.light.pulseOptions.value
+            outReport[44] = self.light.brightness.value
+            outReport[45] = self.light.playerNumber.value
+            outReport[46] = self.light.TouchpadColor[0]
+            outReport[47] = self.light.TouchpadColor[1]
+            outReport[48] = self.light.TouchpadColor[2]
+
+            crcChecksum = compute(outReport)
+
+            outReport[74] = (crcChecksum & 0x000000FF)
+            outReport[75] = (crcChecksum & 0x0000FF00) >> 8
+            outReport[76] = (crcChecksum & 0x00FF0000) >> 16
+            outReport[77] = (crcChecksum & 0xFF000000) >> 24
 
         if self.verbose:
             logger.debug(outReport)
@@ -769,3 +854,12 @@ class DSAccelerometer:
         self.X = 0
         self.Y = 0
         self.Z = 0
+
+
+class DSBattery:
+    """
+    Class representing the Battery of the controller
+    """
+    def __init__(self) -> None:
+        self.State = BatteryState.POWER_SUPPLY_STATUS_UNKNOWN
+        self.Level = 0

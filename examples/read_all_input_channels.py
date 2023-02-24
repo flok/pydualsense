@@ -32,6 +32,7 @@ def print_states(stdscr):
         stdscr.addstr(f"trackPadTouch1: ID: {dualsense.state.trackPadTouch1.ID} \t isActive: {dualsense.state.trackPadTouch1.isActive!s:>5} \t X: {dualsense.state.trackPadTouch1.X:4d} \t Y: {dualsense.state.trackPadTouch1.Y:4d}\n")
         stdscr.addstr(f"gyro: roll: {dualsense.state.gyro.Roll:6} \t pitch: {dualsense.state.gyro.Pitch:6} \t yaw: {dualsense.state.gyro.Yaw:6}\n")
         stdscr.addstr(f"acc: X: {dualsense.state.accelerometer.X:6} \t Y: {dualsense.state.accelerometer.Y:6} \t Z: {dualsense.state.accelerometer.Z:6}\n")
+        stdscr.addstr(f"battery : Level: {dualsense.battery.Level:6} \t State : {dualsense.battery.State}")
         stdscr.addstr("\n")
         stdscr.addstr("Exit script with 'q'\n")
 
