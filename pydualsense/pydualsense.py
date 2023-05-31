@@ -41,6 +41,7 @@ class pydualsense:
         self.leftMotor = 0
         self.rightMotor = 0
 
+        self.bt_led_initialized = False
         self.last_states = None
 
         self.register_available_events()
@@ -500,7 +501,11 @@ class pydualsense:
             # 0x20 ???
             # 0x40 adjustment of overall motor/effect power (index 37 - read note on triggers)
             # 0x80 ???
-            outReport[3] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
+            if not self.bt_led_initialized:
+                outReport[3] = 0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x40 # [2]
+                self.bt_led_initialized = True
+            else:
+                outReport[3] = 0x1 | 0x2 | 0x4 | 0x10 | 0x40 # [2]
 
             outReport[4] = self.rightMotor # right low freq motor 0-255 # [3]
             outReport[5] = self.leftMotor # left low freq motor 0-255 # [4]
