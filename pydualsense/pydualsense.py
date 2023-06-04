@@ -245,10 +245,10 @@ class pydualsense:
 
         self.states = states
         # states 0 is always 1
-        self.state.LX = states[1] - 127
-        self.state.LY = states[2] - 127
-        self.state.RX = states[3] - 127
-        self.state.RY = states[4] - 127
+        self.state.LX = states[1] - 128
+        self.state.LY = states[2] - 128
+        self.state.RX = states[3] - 128
+        self.state.RY = states[4] - 128
         self.state.L2 = states[5]
         self.state.R2 = states[6]
 
