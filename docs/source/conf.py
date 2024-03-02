@@ -1,5 +1,5 @@
 import sys
-import os
+from pathlib import Path
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -11,10 +11,10 @@ import os
 project = 'pydualsense'
 copyright = '2022, Florian (flok) K'
 author = 'Florian (flok) K'
-release = '0.6.1'
+release = '0.7.1'
 
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('../../'))
+
+sys.path.append(str(Path(__file__).parents[2]))
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

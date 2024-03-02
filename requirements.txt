@@ -1,3 +1,3 @@
-hid-usb
-sphinx
-furo
+cffi==1.15.1 ; python_version >= "3.7" and python_version < "4.0"
+hidapi-usb==0.3.1 ; python_version >= "3.7" and python_version < "4.0"
+pycparser==2.21 ; python_version >= "3.7" and python_version < "4.0"

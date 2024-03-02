@@ -1,0 +1,36 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pydualsense"
+version = "0.7.1"
+description = "use your DualSense (PS5) controller with python"
+license = "MIT"
+repository = "https://github.com/flok/pydualsense"
+authors = ["Florian (flok) K"]
+readme = "README.md"
+packages = [{include = "pydualsense"}]
+include = ["pydualsense/hidapi.dll"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+hidapi-usb = "^0.3.1"
+
+[tool.poetry.group.dev.dependencies]
+taskipy = "^1.12.2"
+
+[tool.taskipy.tasks]
+clear = "find pydualsense/ -type f \\( -iname \\*.c -o -iname \\*.cpp -o -iname \\*.pyd -o -iname \\*.so \\) -delete"
+build = "poetry build"
+html_docs = "make html -C docs"
+post_build = "task clear"
+post_test = "task clear"
+
+
+[tool.poetry_bumpversion.file."pydualsense/__init__.py"]
+
+
+[tool.ruff]
+exclude = [".venv"]
+line-length = 120
