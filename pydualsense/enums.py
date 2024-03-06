@@ -4,6 +4,7 @@ from enum import IntFlag
 class ConnectionType(IntFlag):
     BT = 0x0
     USB = 0x1
+    ERROR = 0xFF
 
 
 class LedOptions(IntFlag):
