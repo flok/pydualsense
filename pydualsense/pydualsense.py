@@ -244,6 +244,10 @@ class pydualsense:
             except IOError:
                 self.connected = False
                 break
+                
+            except AttributeError:
+                self.connected = False
+                break
 
     def readInput(self, inReport) -> None:
         """
