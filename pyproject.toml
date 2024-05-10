@@ -22,7 +22,6 @@ classifiers = [
 [tool.poetry]
 name = "pydualsense"
 version = "0.7.2"
-version = "0.7.2"
 description = "use your DualSense (PS5) controller with python"
 license = "MIT"
 repository = "https://github.com/flok/pydualsense"
@@ -30,7 +29,6 @@ authors = ["Florian (flok) K"]
 readme = "README.md"
 packages = [{include = "pydualsense"}]
 include = ["pydualsense/hidapi.dll"]
-keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
 keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
 
 [tool.poetry.dependencies]
