@@ -156,3 +156,4 @@ dmypy.json
 
 pydualsense/interface.py
 pydualsense/interface.ui
+poetry.locak
