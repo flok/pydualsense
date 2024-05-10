@@ -859,6 +859,8 @@ files = [
 markers = {typing = "python_version < \"3.11\""}
 
 [[package]]
+=======
+>>>>>>> 73d86d1 (Add mypy, ruff stuff)
 name = "types-python-dateutil"
 version = "2.9.0.20241206"
 description = "Typing stubs for python-dateutil"
