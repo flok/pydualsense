@@ -59,38 +59,8 @@ post_test = "task clear"
 
 [tool.poetry_bumpversion.file."pydualsense/__init__.py"]
 [tool.poetry_bumpversion.file."pyproject.toml"]
-[tool.poetry_bumpversion.file."pyproject.toml"]
 
 [tool.ruff]
-fix = true
-unfixable = [
-    "ERA", # do not autoremove commented out code
-]
-extend-select = [
-    "B", # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "ERA", # flake8-eradicate/eradicate
-    "I", # isort
-    "N", # pep8-naming
-    "PIE", # flake8-pie
-    "PGH", # pygrep
-    "RUF", # ruff checks
-    "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
-    "TID", # flake8-tidy-imports
-    "UP", # pyupgrade
-]
-ignore = [
-    "B904", # use 'raise ... from err'
-    "B905", # use explicit 'strict=' parameter with 'zip()'
-    "N818", #  Exception name should be named with an Error suffix
-    "RUF001",
-    "N816",
-    "ERA001",
-    "N802",
-    "N806"
-]
-target-version = "py38"
 fix = true
 unfixable = [
     "ERA", # do not autoremove commented out code
