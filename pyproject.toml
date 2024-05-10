@@ -30,7 +30,6 @@ readme = "README.md"
 packages = [{include = "pydualsense"}]
 include = ["pydualsense/hidapi.dll"]
 keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
-keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
