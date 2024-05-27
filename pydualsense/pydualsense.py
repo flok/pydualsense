@@ -685,7 +685,7 @@ class DSState:
         elif dpad_state == 5:
             self.DpadUp = False
             self.DpadDown = True
-            self.DpadLeft = False
+            self.DpadLeft = True
             self.DpadRight = False
         elif dpad_state == 6:
             self.DpadUp = False
