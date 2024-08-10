@@ -177,7 +177,7 @@ class pydualsense:
         detected_device: hidapi.Device = None
         devices = hidapi.enumerate(vendor_id=0x054C)
         for device in devices:
-            if device.vendor_id == 0x054C and device.product_id == 0x0CE6:
+            if device.vendor_id == 0x054C and device.product_id in (0x0CE6, 0x0DF2):
                 detected_device = device
 
         if detected_device is None:
