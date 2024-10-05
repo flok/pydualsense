@@ -118,6 +118,7 @@ class pydualsense:  # noqa: N801
         if self.conType is ConnectionType.ERROR:
             raise Exception("Couldn't determine connection type")
         self.ds_thread = True
+        self.connected = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
         self.states = None
@@ -233,18 +234,26 @@ class pydualsense:  # noqa: N801
     def sendReport(self) -> None:
         """background thread handling the reading of the device and updating its states"""
         while self.ds_thread:
-            # read data from the input report of the controller
-            inReport = self.device.read(self.input_report_length)
-            if self.verbose:
-                logger.debug(inReport)
-            # decrypt the packet and bind the inputs
-            self.readInput(inReport)
+            try:
+                # read data from the input report of the controller
+                inReport = self.device.read(self.input_report_length)
+                if self.verbose:
+                    logger.debug(inReport)
+                # decrypt the packet and bind the inputs
+                self.readInput(inReport)
 
-            # prepare new report for device
-            outReport = self.prepareReport()
+                # prepare new report for device
+                outReport = self.prepareReport()
 
-            # write the report to the device
-            self.writeReport(outReport)
+                # write the report to the device
+                self.writeReport(outReport)
+            except IOError:
+                self.connected = False
+                break
+                
+            except AttributeError:
+                self.connected = False
+                break
 
     def readInput(self, inReport : List[int]) -> None:
         """
