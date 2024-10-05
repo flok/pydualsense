@@ -7,21 +7,23 @@ if platform.startswith("win32") and sys.version_info >= (3, 8):
     os.environ["PATH"] += os.pathsep + os.path.dirname(__file__)
 
 
-import hidapi
+import threading
+from copy import deepcopy
+from typing import List, Tuple
+
+import hidapi  # type: ignore[import]
+
+from .checksum import compute
 from .enums import (
+    BatteryState,
+    Brightness,
+    ConnectionType,
     LedOptions,
     PlayerID,
     PulseOptions,
     TriggerModes,
-    Brightness,
-    ConnectionType,
-    BatteryState,
-)  # type: ignore
-import threading
+)
 from .event_system import Event
-from .checksum import compute
-from copy import deepcopy
-
 
 logger = logging.getLogger()
 FORMAT = "%(asctime)s %(message)s"
@@ -29,7 +31,7 @@ logging.basicConfig(format=FORMAT)
 logger.setLevel(logging.INFO)
 
 
-class pydualsense:
+class pydualsense:  # noqa: N801
     OUTPUT_REPORT_USB = 0x02
     OUTPUT_REPORT_BT = 0x31
 
@@ -49,7 +51,7 @@ class pydualsense:
         self.leftMotor = 0
         self.rightMotor = 0
 
-        self.last_states = None
+        self.last_states: DSState = None # type: ignore[assignment]
 
         self.register_available_events()
 
@@ -113,7 +115,10 @@ class pydualsense:
         self.state = DSState()  # controller states
         self.battery = DSBattery()
         self.conType = self.determineConnectionType()  # determine USB or BT connection
+        if self.conType is ConnectionType.ERROR:
+            raise Exception("Couldn't determine connection type")
         self.ds_thread = True
+        self.connected = True
         self.report_thread = threading.Thread(target=self.sendReport)
         self.report_thread.start()
         self.states = None
@@ -143,6 +148,8 @@ class pydualsense:
             self.input_report_length = 78
             self.output_report_length = 78
             return ConnectionType.BT
+
+        return ConnectionType.ERROR
 
     def close(self) -> None:
         """
@@ -227,42 +234,48 @@ class pydualsense:
     def sendReport(self) -> None:
         """background thread handling the reading of the device and updating its states"""
         while self.ds_thread:
-            # read data from the input report of the controller
-            inReport = self.device.read(self.input_report_length)
-            if self.verbose:
-                logger.debug(inReport)
-            # decrypt the packet and bind the inputs
-            self.readInput(inReport)
+            try:
+                # read data from the input report of the controller
+                inReport = self.device.read(self.input_report_length)
+                if self.verbose:
+                    logger.debug(inReport)
+                # decrypt the packet and bind the inputs
+                self.readInput(inReport)
 
-            # prepare new report for device
-            outReport = self.prepareReport()
+                # prepare new report for device
+                outReport = self.prepareReport()
 
-            # write the report to the device
-            self.writeReport(outReport)
+                # write the report to the device
+                self.writeReport(outReport)
+            except IOError:
+                self.connected = False
+                break
+                
+            except AttributeError:
+                self.connected = False
+                break
 
-    def readInput(self, inReport) -> None:
+    def readInput(self, inReport : List[int]) -> None:
         """
         read the input from the controller and assign the states
 
         Args:
             inReport (bytearray): read bytearray containing the state of the whole controller
         """
-        if self.conType == ConnectionType.BT:
-            # the reports for BT and USB are structured the same,
-            # but there is one more byte at the start of the bluetooth report.
-            # We drop that byte, so that the format matches up again.
-            states = list(inReport)[1:]  # convert bytes to list
-        else:  # USB
-            states = list(inReport)  # convert bytes to list
 
-        self.states = states
+        # the reports for BT and USB are structured the same,
+        # but there is one more byte at the start of the bluetooth report.
+        # We drop that byte, so that the format matches up again.
+        states: List[int] = list(inReport)[1:] if self.conType == ConnectionType.BT else list(inReport)
+
+        self.states: List[int] = states # type: ignore[assigment]
         # states 0 is always 1
         self.state.LX = states[1] - 128
         self.state.LY = states[2] - 128
         self.state.RX = states[3] - 128
         self.state.RY = states[4] - 128
-        self.state.L2 = states[5]
-        self.state.R2 = states[6]
+        self.state.L2 = bool(states[5])
+        self.state.R2 = bool(states[6])
 
         # state 7 always increments -> not used anywhere
 
@@ -336,7 +349,7 @@ class pydualsense:
 
         # first call we dont have a "last state" so we create if with the first occurence
         if self.last_states is None:
-            self.last_states = deepcopy(self.state)
+            self.last_states: DSState = deepcopy(self.state) # type: ignore[assignment]
             return
 
         # send all events if neede
@@ -433,7 +446,7 @@ class pydualsense:
 
         # TODO: control mouse with touchpad for fun as DS4Windows
 
-    def writeReport(self, outReport) -> None:
+    def writeReport(self, outReport : List[int]) -> None:  # noqa: N803
         """
         write the report to the device
 
@@ -442,18 +455,18 @@ class pydualsense:
         """
         self.device.write(bytes(outReport))
 
-    def prepareReport(self) -> None:
+    def prepareReport(self) -> List[int]:
         """
         prepare the output to be send to the controller
 
         Returns:
             list: report to send to controller
         """
-
+        outReport = (
+            [0] * self.output_report_length
+        )  # create empty list with range of output report
+ 
         if self.conType == ConnectionType.USB:
-            outReport = (
-                [0] * self.output_report_length
-            )  # create empty list with range of output report
             # packet type
             outReport[0] = self.OUTPUT_REPORT_USB
 
@@ -516,9 +529,6 @@ class pydualsense:
             outReport[47] = self.light.TouchpadColor[2]
 
         elif self.conType == ConnectionType.BT:
-            outReport = (
-                [0] * self.output_report_length
-            )  # create empty list with range of output report
             # packet type
             outReport[0] = self.OUTPUT_REPORT_BT  # bt type
 
@@ -649,7 +659,7 @@ class DSState:
         self.gyro = DSGyro()
         self.accelerometer = DSAccelerometer()
 
-    def setDPadState(self, dpad_state: int):
+    def setDPadState(self, dpad_state: int) -> None:
         """
         Sets the dpad state variables according to the integers that was read from the controller
 
@@ -684,7 +694,7 @@ class DSState:
         elif dpad_state == 5:
             self.DpadUp = False
             self.DpadDown = True
-            self.DpadLeft = False
+            self.DpadLeft = True
             self.DpadRight = False
         elif dpad_state == 6:
             self.DpadUp = False
@@ -715,7 +725,7 @@ class DSLight:
         self.pulseOptions: PulseOptions = PulseOptions.Off
         self.TouchpadColor = (0, 0, 255)
 
-    def setLEDOption(self, option: LedOptions):
+    def setLEDOption(self, option: LedOptions) -> None:
         """
         Sets the LED Option
 
@@ -729,7 +739,7 @@ class DSLight:
             raise TypeError("Need LEDOption type")
         self.ledOption = option
 
-    def setPulseOption(self, option: PulseOptions):
+    def setPulseOption(self, option: PulseOptions) -> None:
         """
         Sets the Pulse Option of the LEDs
 
@@ -743,7 +753,7 @@ class DSLight:
             raise TypeError("Need PulseOption type")
         self.pulseOptions = option
 
-    def setBrightness(self, brightness: Brightness):
+    def setBrightness(self, brightness: Brightness) -> None:
         """
         Defines the brightness of the Player LEDs
 
@@ -757,7 +767,7 @@ class DSLight:
             raise TypeError("Need Brightness type")
         self.brightness = brightness
 
-    def setPlayerID(self, player: PlayerID):
+    def setPlayerID(self, player: PlayerID) -> None:
         """
         Sets the PlayerID of the controller with the choosen LEDs.
         The controller has 4 Player states
@@ -792,7 +802,7 @@ class DSLight:
             raise Exception("colors have values from 0 to 255 only")
         self.TouchpadColor = (r, g, b)
 
-    def setColorT(self, color: tuple) -> None:
+    def setColorT(self, color: Tuple[int, int, int]) -> None:
         """
         Sets the Color around the Touchpad as a tuple
 
@@ -821,7 +831,7 @@ class DSAudio:
         self.microphone_mute = 0
         self.microphone_led = 0
 
-    def setMicrophoneLED(self, value):
+    def setMicrophoneLED(self, value: bool) -> None:
         """
         Activates or disables the microphone led.
         This doesnt change the mute/unmutes the microphone itself.
@@ -836,7 +846,7 @@ class DSAudio:
             raise TypeError("MicrophoneLED can only be a bool")
         self.microphone_led = value
 
-    def setMicrophoneState(self, state: bool):
+    def setMicrophoneState(self, state: bool) -> None:
         """
         Set the microphone state and also sets the microphone led accordingle
 
@@ -868,7 +878,7 @@ class DSTrigger:
         # force parameters for the triggers
         self.forces = [0 for i in range(7)]
 
-    def setForce(self, forceID: int = 0, force: int = 0):
+    def setForce(self, forceID: int = 0, force: int = 0) -> None:
         """
         Sets the forces of the choosen force parameter
 
@@ -888,7 +898,7 @@ class DSTrigger:
 
         self.forces[forceID] = force
 
-    def setMode(self, mode: TriggerModes):
+    def setMode(self, mode: TriggerModes) -> None:
         """
         Set the Mode for the Trigger
 

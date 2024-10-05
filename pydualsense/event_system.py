@@ -1,4 +1,8 @@
-class Event(object):
+from typing import Any, Callable, List
+
+
+# mypy: disable_error_code="type-arg"
+class Event:
     """
     Base class for the event driven system
     """
@@ -7,9 +11,9 @@ class Event(object):
         """
         initialise event system
         """
-        self._event_handler = []
+        self._event_handler: List[Callable] = []
 
-    def subscribe(self, fn):
+    def subscribe(self, fn: Callable) -> Any:
         """
         add a event subscription
 
@@ -19,7 +23,7 @@ class Event(object):
         self._event_handler.append(fn)
         return self
 
-    def unsubscribe(self, fn):
+    def unsubscribe(self, fn: Callable) -> Any:
         """
         delete event subscription fn
 
@@ -29,7 +33,7 @@ class Event(object):
         self._event_handler.remove(fn)
         return self
 
-    def __iadd__(self, fn):
+    def __iadd__(self, fn: Callable) -> Any:
         """
         add event subscription fn
 
@@ -39,7 +43,7 @@ class Event(object):
         self._event_handler.append(fn)
         return self
 
-    def __isub__(self, fn):
+    def __isub__(self, fn: Callable) -> Any:
         """
         delete event subscription fn
 
@@ -49,9 +53,9 @@ class Event(object):
         self._event_handler.remove(fn)
         return self
 
-    def __call__(self, *args, **keywargs):
+    def __call__(self, *args, **kwargs) -> None: # type: ignore[arg-type]
         """
         calls all event subscription functions
         """
         for eventhandler in self._event_handler:
-            eventhandler(*args, **keywargs)
+            eventhandler(*args, **kwargs)

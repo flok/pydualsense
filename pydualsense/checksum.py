@@ -1,4 +1,5 @@
 import array
+from typing import List
 
 # from South-River
 # fmt: off
@@ -39,10 +40,10 @@ hashTable = array.array('I', [
 # fmt:on
 
 
-def compute(buffer):
-    result = 0xEADA2D49
+def compute(buffer: List[int]) -> int:
+    result: int = 0xEADA2D49
 
-    for i in range(0, 74):
+    for i in range(74):
         result = hashTable[(result & 0xFF) ^ (buffer[i] & 0xFF)] ^ (result >> 8)
 
     return result
