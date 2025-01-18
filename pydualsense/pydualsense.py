@@ -424,15 +424,12 @@ class pydualsense:  # noqa: N801
             if self.state.R4 != self.last_states.R4:
                 self.r4_changed(self.state.R4)
 
-        if self.is_edge:
             if self.state.R5 != self.last_states.R5:
                 self.r5_changed(self.state.R5)
 
-        if self.is_edge:
             if self.state.L4 != self.last_states.L4:
                 self.l4_changed(self.state.L4)
 
-        if self.is_edge:
             if self.state.L5 != self.last_states.L5:
                 self.l5_changed(self.state.L5)
 
