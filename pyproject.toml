@@ -1,7 +1,7 @@
 
 [project]
 name = "pydualsense"
-version = "0.7.2"
+version = "0.7.3"
 description = "use your DualSense (PS5) controller with python"
 readme = "README.md"
 requires-python = ">=3.8,<4.0"
@@ -21,7 +21,7 @@ classifiers = [
 
 [tool.poetry]
 name = "pydualsense"
-version = "0.7.2"
+version = "0.7.3"
 description = "use your DualSense (PS5) controller with python"
 license = "MIT"
 repository = "https://github.com/flok/pydualsense"
@@ -33,13 +33,13 @@ keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
-hidapi-usb = "^0.3.1"
+hidapi-usb = "^0.3.2"
 
 [tool.poetry.group.dev.dependencies]
 python = ">=3.9,<4.0"
 taskipy = "^1.12.2"
-hidapi-usb = "^0.3.1"
-sphinx = "^7.3.7"
+hidapi-usb = "^0.3.2"
+sphinx = { version= "^7.3.7", python=">=3.9" }
 furo = "^2024.5.6"
 
 [tool.poetry.group.typing.dependencies]
@@ -90,22 +90,6 @@ ignore = [
 target-version = "py38"
 exclude = [".venv"]
 line-length = 120
-
-[tool.mypy]
-strict = true
-files = "pydualsense"
-show_error_codes = true
-pretty = true
-warn_unused_ignores = true
-enable_incomplete_feature = ["Unpack"]
-exclude = [
-    "^docs\\.py$",
-    "^build\\.py$",
-]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 strict = true
