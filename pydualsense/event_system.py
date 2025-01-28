@@ -7,11 +7,12 @@ class Event:
     Base class for the event driven system
     """
 
-    def __init__(self) -> None:
+    def __init__(self, available=True) -> None:
         """
         initialise event system
         """
         self._event_handler: List[Callable] = []
+        self.available = available
 
     def subscribe(self, fn: Callable) -> Any:
         """
@@ -20,6 +21,8 @@ class Event:
         Args:
             fn (function): _description_
         """
+        if not self.available:
+            raise ValueError("Event unavailable")
         self._event_handler.append(fn)
         return self
 
@@ -30,6 +33,8 @@ class Event:
         Args:
             fn (function): _description_
         """
+        if not self.available:
+            raise ValueError("Event unavailable")
         self._event_handler.remove(fn)
         return self
 
@@ -40,6 +45,8 @@ class Event:
         Args:
             fn (function): _description_
         """
+        if not self.available:
+            raise ValueError("Event unavailable")
         self._event_handler.append(fn)
         return self
 
@@ -50,6 +57,8 @@ class Event:
         Args:
             fn (function): _description_
         """
+        if not self.available:
+            raise ValueError("Event unavailable")
         self._event_handler.remove(fn)
         return self
 
@@ -57,5 +66,7 @@ class Event:
         """
         calls all event subscription functions
         """
+        if not self.available:
+            raise ValueError("Event unavailable")
         for eventhandler in self._event_handler:
             eventhandler(*args, **kwargs)
