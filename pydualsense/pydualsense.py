@@ -111,6 +111,10 @@ class pydualsense:  # noqa: N801
 
         self.accelerometer_changed = Event()
 
+        # trigger analog
+        self.l2_value_changed = Event()
+        self.r2_value_changed = Event()
+
     def init(self) -> None:
         """
         initialize module and device states. Starts the sendReport background thread at the end
@@ -291,6 +295,10 @@ class pydualsense:  # noqa: N801
         self.state.L2 = bool(states[5])
         self.state.R2 = bool(states[6])
 
+        # trigger analog
+        self.state.L2_value = states[5]
+        self.state.R2_value = states[6]
+
         # state 7 always increments -> not used anywhere
 
         buttonState = states[8]
@@ -467,6 +475,12 @@ class pydualsense:  # noqa: N801
             self.gyro_changed(
                 self.state.gyro.Pitch, self.state.gyro.Yaw, self.state.gyro.Roll
             )
+
+        if self.state.L2_value != self.last_states.L2_value:
+            self.l2_value_changed(self.state.L2_value)
+
+        if self.state.R2_value != self.last_states.R2_value:
+            self.r2_value_changed(self.state.R2_value)
 
         """
         copy current state into temp object to check next cycle if a change occuret
@@ -692,6 +706,8 @@ class DSState:
         self.trackPadTouch0, self.trackPadTouch1 = DSTouchpad(), DSTouchpad()
         self.gyro = DSGyro()
         self.accelerometer = DSAccelerometer()
+        self.L2_value = 0 # trigger analog value from 0 to 255
+        self.R2_value = 0 # trigger analog value from 0 to 255
 
     def setDPadState(self, dpad_state: int) -> None:
         """
