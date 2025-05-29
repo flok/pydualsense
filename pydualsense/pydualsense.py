@@ -87,6 +87,14 @@ class pydualsense:  # noqa: N801
         self.l2_changed = Event()
         self.l3_changed = Event()
 
+        # Dualsense Edge specific buttons
+        # Default to a disabled event
+        self.r4_changed = Event(False)
+        self.r5_changed = Event(False)
+        self.l4_changed = Event(False)
+        self.l5_changed = Event(False)
+
+
         # misc
         self.ps_pressed = Event()
         self.touch_pressed = Event()
@@ -111,12 +119,17 @@ class pydualsense:  # noqa: N801
         """
         initialize module and device states. Starts the sendReport background thread at the end
         """
-        self.device: hidapi.Device = self.__find_device()
+        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
         self.triggerR = DSTrigger()  # right trigger
         self.state = DSState()  # controller states
+        # Initialize extra buttons
+        if self.is_edge:
+            self.state.L4, self.state.L5, self.state.R4, self.state.R5 = False, False, False, False
+            (self.l4_changed.available, self.l5_changed.available,
+             self.r4_changed.available, self.r5_changed.available) = True, True, True, True
         self.battery = DSBattery()
         self.conType = self.determineConnectionType()  # determine USB or BT connection
         if self.conType is ConnectionType.ERROR:
@@ -165,7 +178,7 @@ class pydualsense:  # noqa: N801
         self.report_thread.join()
         self.device.close()
 
-    def __find_device(self) -> hidapi.Device:
+    def __find_device(self) -> Tuple[hidapi.Device, bool]:
         """
         find HID dualsense device and open it
 
@@ -175,6 +188,7 @@ class pydualsense:  # noqa: N801
 
         Returns:
             hid.Device: returns opened controller device
+            bool: returns true if the device is a DualSense Edge.
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
@@ -197,7 +211,7 @@ class pydualsense:  # noqa: N801
         dual_sense = hidapi.Device(
             vendor_id=detected_device.vendor_id, product_id=detected_device.product_id
         )
-        return dual_sense
+        return dual_sense, detected_device.product_id == 0x0DF2
 
     def setLeftMotor(self, intensity: int) -> None:
         """
@@ -311,6 +325,11 @@ class pydualsense:  # noqa: N801
         self.state.ps = (misc2 & (1 << 0)) != 0
         self.state.touchBtn = (misc2 & 0x02) != 0
         self.state.micBtn = (misc2 & 0x04) != 0
+        if self.is_edge:
+            self.state.L4 = (misc2 & 0x10) != 0
+            self.state.R4 = (misc2 & 0x20) != 0
+            self.state.L5 = (misc2 & 0x40) != 0
+            self.state.R5 = (misc2 & 0x80) != 0
 
         # trackpad touch
         self.state.trackPadTouch0.ID = inReport[33] & 0x7F
@@ -408,6 +427,19 @@ class pydualsense:  # noqa: N801
 
         if self.state.L3 != self.last_states.L3:
             self.l3_changed(self.state.L3)
+
+        if self.is_edge:
+            if self.state.R4 != self.last_states.R4:
+                self.r4_changed(self.state.R4)
+
+            if self.state.R5 != self.last_states.R5:
+                self.r5_changed(self.state.R5)
+
+            if self.state.L4 != self.last_states.L4:
+                self.l4_changed(self.state.L4)
+
+            if self.state.L5 != self.last_states.L5:
+                self.l5_changed(self.state.L5)
 
         if self.state.ps != self.last_states.ps:
             self.ps_pressed(self.state.ps)
@@ -666,6 +698,8 @@ class DSState:
             self.touchRight,
             self.touchLeft,
         ) = False, False, False, False, False, False, False, False
+        # Set to None to allow regular controllers to have these values unset
+        self.L4, self.L5, self.R4, self.R5 = None, None, None, None
         self.touchFinger1, self.touchFinger2 = False, False
         self.micBtn = False
         self.RX, self.RY, self.LX, self.LY = 128, 128, 128, 128

@@ -106,3 +106,18 @@ exclude = [
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+strict = true
+files = "pydualsense"
+show_error_codes = true
+pretty = true
+warn_unused_ignores = true
+enable_incomplete_feature = ["Unpack"]
+exclude = [
+    "^docs\\.py$",
+    "^build\\.py$",
+]
+
+[build-system]
+requires = ["poetry-core"]
