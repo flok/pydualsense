@@ -115,7 +115,7 @@ class pydualsense:  # noqa: N801
         """
         initialize module and device states. Starts the sendReport background thread at the end
         """
-        self.device, self.is_edge = self.__find_device()
+        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
