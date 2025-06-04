@@ -963,6 +963,50 @@ class DSTrigger:
 
         self.mode = mode
 
+    def setEffect(self, effect: str) -> None:
+        """
+        Select effect
+        """
+
+        match effect:
+            case 'vibration':
+                self.mode = TriggerModes.Pulse_AB
+                self.forces[0] = 255
+                self.forces[1] = 3
+                self.forces[2] = 255
+                self.forces[3] = 255
+                self.forces[4] = 255
+                self.forces[5] = 63
+                self.forces[6] = 15
+            case 'weapon':
+                self.mode = TriggerModes.Rigid_AB
+                self.forces[0] = 36
+                self.forces[1] = 0
+                self.forces[2] = 7
+                self.forces[3] = 0
+                self.forces[4] = 0
+                self.forces[5] = 0
+                self.forces[6] = 0
+            case 'rigid':
+                self.mode = TriggerModes.Rigid
+                self.forces[0] = 0
+                self.forces[1] = 255
+                self.forces[2] = 0
+                self.forces[3] = 0
+                self.forces[4] = 0
+                self.forces[5] = 0
+                self.forces[6] = 0
+            case _:
+                self.mode = TriggerModes.Off
+
+                # force parameters for the triggers
+                self.forces[0] = 0
+                self.forces[1] = 0
+                self.forces[2] = 0
+                self.forces[3] = 0
+                self.forces[4] = 0
+                self.forces[5] = 0
+                self.forces[6] = 0
 
 class DSGyro:
     """
