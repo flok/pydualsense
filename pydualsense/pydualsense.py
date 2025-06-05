@@ -119,7 +119,19 @@ class pydualsense:  # noqa: N801
         """
         initialize module and device states. Starts the sendReport background thread at the end
         """
-        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
+        
+        self.setController = selectController()
+        self.devices = self.__find_device() # type: Tuple[hidapi.Device, bool]
+
+        self.device = self.devices['controller0']["deviceConection"]
+        
+        for dev in self.devices.keys():
+            if self.devices[dev]["isEdge"] == True:
+                print("edge")
+                self.is_edge = True
+            else:
+                self.is_edge = False       
+            
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
@@ -200,18 +212,17 @@ class pydualsense:  # noqa: N801
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
         detected_device: hidapi.Device = None
+        select = {}
+        
         devices = hidapi.enumerate(vendor_id=0x054C)
-        for device in devices:
-            if device.vendor_id == 0x054C and device.product_id in (0x0CE6, 0x0DF2):
-                detected_device = device
+        for index in range(len(devices)):
+            if devices[index].vendor_id == 0x054C and devices[index].product_id in (0x0CE6, 0x0DF2):
+                select[f'controller{index}'] = {"deviceConection" :hidapi.Device(path=devices[index].path), "isEdge": devices[index].product_id == 0x0DF2}
 
-        if detected_device is None:
+        if len(select) == 0:
             raise Exception("No device detected")
 
-        dual_sense = hidapi.Device(
-            vendor_id=detected_device.vendor_id, product_id=detected_device.product_id
-        )
-        return dual_sense, detected_device.product_id == 0x0DF2
+        return select
 
     def setLeftMotor(self, intensity: int) -> None:
         """
@@ -253,6 +264,7 @@ class pydualsense:  # noqa: N801
         """background thread handling the reading of the device and updating its states"""
         while self.ds_thread:
             try:
+                self.device =  self.devices[f'controller{self.setController.selectedController}']["deviceConection"]
                 # read data from the input report of the controller
                 inReport = self.device.read(self.input_report_length)
                 if self.verbose:
@@ -665,6 +677,12 @@ class DSTouchpad:
         self.X = 0
         self.Y = 0
 
+class selectController:
+    def __init__(self, ) -> None:
+        self.selectedController = 0
+
+    def choose(self, controllerNum=0):
+        self.selectedController = controllerNum
 
 class DSState:
     def __init__(self) -> None:
