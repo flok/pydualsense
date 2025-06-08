@@ -120,14 +120,13 @@ class pydualsense:  # noqa: N801
         initialize module and device states. Starts the sendReport background thread at the end
         """
         
-        self.setController = selectController()
+        self.setController = selectController() # controller selector
         self.devices = self.__find_device() # type: Tuple[hidapi.Device, bool]
 
         self.device = self.devices['controller0']["deviceConection"]
         
-        for dev in self.devices.keys():
+        for dev in self.devices.keys(): # In case that an edge controller is connected, the edge events and buttons is enabled 
             if self.devices[dev]["isEdge"] == True:
-                print("edge")
                 self.is_edge = True
             else:
                 self.is_edge = False       
@@ -188,7 +187,8 @@ class pydualsense:  # noqa: N801
 
         self.ds_thread = False
         self.report_thread.join()
-        self.device.close()
+        for key in self.devices.keys(): # Close controllers 
+            self.devices[key]["deviceConection"].close()
 
     def __find_device(self) -> Tuple[hidapi.Device, bool]:
         """
@@ -199,8 +199,8 @@ class pydualsense:  # noqa: N801
             Exception: No device detected
 
         Returns:
-            hid.Device: returns opened controller device
-            bool: returns true if the device is a DualSense Edge.
+            hid.Device: returns a dict with opened controllers devices and
+            if the device is a DualSense Edge.
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
@@ -211,13 +211,14 @@ class pydualsense:  # noqa: N801
                 raise Exception(
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
-        detected_device: hidapi.Device = None
-        select = {}
-        
+
+        select = {} # Dict of devices connected
+        numCont = 0 # Counter of devices connected
         devices = hidapi.enumerate(vendor_id=0x054C)
-        for index in range(len(devices)):
-            if devices[index].vendor_id == 0x054C and devices[index].product_id in (0x0CE6, 0x0DF2):
-                select[f'controller{index}'] = {"deviceConection" :hidapi.Device(path=devices[index].path), "isEdge": devices[index].product_id == 0x0DF2}
+        for dev in devices:
+            if dev.vendor_id == 0x054C and dev.product_id in (0x0CE6, 0x0DF2):
+                select[f'controller{numCont}'] = {"deviceConection": hidapi.Device(path=dev.path), "isEdge": dev.product_id == 0x0DF2}
+                numCont = numCont + 1
 
         if len(select) == 0:
             raise Exception("No device detected")
@@ -264,7 +265,10 @@ class pydualsense:  # noqa: N801
         """background thread handling the reading of the device and updating its states"""
         while self.ds_thread:
             try:
-                self.device =  self.devices[f'controller{self.setController.selectedController}']["deviceConection"]
+                self.device =  self.devices[f'controller{self.setController.selectedController}']["deviceConection"] # Controller selector
+                
+                self.is_edge = self.devices[f'controller{self.setController.selectedController}']["isEdge"] # Check if is an edge and enable the reading of edge buttons
+                
                 # read data from the input report of the controller
                 inReport = self.device.read(self.input_report_length)
                 if self.verbose:
@@ -277,11 +281,16 @@ class pydualsense:  # noqa: N801
 
                 # write the report to the device
                 self.writeReport(outReport)
+                
             except IOError:
                 self.connected = False
                 break
                 
             except AttributeError:
+                self.connected = False
+                break
+            
+            except KeyError:
                 self.connected = False
                 break
 
