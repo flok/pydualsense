@@ -687,7 +687,7 @@ class DSTouchpad:
         self.Y = 0
 
 class selectController:
-    def __init__(self, ) -> None:
+    def __init__(self) -> None:
         self.selectedController = 0
 
     def choose(self, controllerNum=0):
