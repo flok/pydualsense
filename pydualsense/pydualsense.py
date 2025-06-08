@@ -22,6 +22,7 @@ from .enums import (
     PlayerID,
     PulseOptions,
     TriggerModes,
+    TriggersEffects,
 )
 from .event_system import Event
 
@@ -962,6 +963,15 @@ class DSTrigger:
             raise TypeError("Trigger mode parameter needs to be of type `TriggerModes`")
 
         self.mode = mode
+
+    def setEffect(self, effect: TriggersEffects) -> None:
+        """
+        Select effect
+        """
+        if not isinstance(effect, TriggersEffects):
+            raise TypeError("Triggers effects parameter needs to be of type 'TriggersEffects'")
+        
+        self.mode, self.forces = effect.value
 
 
 class DSGyro:
