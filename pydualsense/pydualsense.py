@@ -119,7 +119,18 @@ class pydualsense:  # noqa: N801
         """
         initialize module and device states. Starts the sendReport background thread at the end
         """
-        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
+        
+        self.setController = selectController() # controller selector
+        self.devices = self.__find_device() # type: Tuple[hidapi.Device, bool]
+
+        self.device = self.devices['controller0']["deviceConection"]
+        
+        for dev in self.devices.keys(): # In case that an edge controller is connected, the edge events and buttons is enabled 
+            if self.devices[dev]["isEdge"] == True:
+                self.is_edge = True
+            else:
+                self.is_edge = False       
+            
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
@@ -176,7 +187,8 @@ class pydualsense:  # noqa: N801
 
         self.ds_thread = False
         self.report_thread.join()
-        self.device.close()
+        for key in self.devices.keys(): # Close controllers 
+            self.devices[key]["deviceConection"].close()
 
     def __find_device(self) -> Tuple[hidapi.Device, bool]:
         """
@@ -187,8 +199,8 @@ class pydualsense:  # noqa: N801
             Exception: No device detected
 
         Returns:
-            hid.Device: returns opened controller device
-            bool: returns true if the device is a DualSense Edge.
+            hid.Device: returns a dict with opened controllers devices and
+            if the device is a DualSense Edge.
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
@@ -199,19 +211,19 @@ class pydualsense:  # noqa: N801
                 raise Exception(
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
-        detected_device: hidapi.Device = None
-        devices = hidapi.enumerate(vendor_id=0x054C)
-        for device in devices:
-            if device.vendor_id == 0x054C and device.product_id in (0x0CE6, 0x0DF2):
-                detected_device = device
 
-        if detected_device is None:
+        select = {} # Dict of devices connected
+        numCont = 0 # Counter of devices connected
+        devices = hidapi.enumerate(vendor_id=0x054C)
+        for dev in devices:
+            if dev.vendor_id == 0x054C and dev.product_id in (0x0CE6, 0x0DF2):
+                select[f'controller{numCont}'] = {"deviceConection": hidapi.Device(path=dev.path), "isEdge": dev.product_id == 0x0DF2}
+                numCont = numCont + 1
+
+        if len(select) == 0:
             raise Exception("No device detected")
 
-        dual_sense = hidapi.Device(
-            vendor_id=detected_device.vendor_id, product_id=detected_device.product_id
-        )
-        return dual_sense, detected_device.product_id == 0x0DF2
+        return select
 
     def setLeftMotor(self, intensity: int) -> None:
         """
@@ -253,6 +265,10 @@ class pydualsense:  # noqa: N801
         """background thread handling the reading of the device and updating its states"""
         while self.ds_thread:
             try:
+                self.device =  self.devices[f'controller{self.setController.selectedController}']["deviceConection"] # Controller selector
+                
+                self.is_edge = self.devices[f'controller{self.setController.selectedController}']["isEdge"] # Check if is an edge and enable the reading of edge buttons
+                
                 # read data from the input report of the controller
                 inReport = self.device.read(self.input_report_length)
                 if self.verbose:
@@ -265,11 +281,16 @@ class pydualsense:  # noqa: N801
 
                 # write the report to the device
                 self.writeReport(outReport)
+                
             except IOError:
                 self.connected = False
                 break
                 
             except AttributeError:
+                self.connected = False
+                break
+            
+            except KeyError:
                 self.connected = False
                 break
 
@@ -665,6 +686,12 @@ class DSTouchpad:
         self.X = 0
         self.Y = 0
 
+class selectController:
+    def __init__(self) -> None:
+        self.selectedController = 0
+
+    def choose(self, controllerNum=0):
+        self.selectedController = controllerNum
 
 class DSState:
     def __init__(self) -> None:
