@@ -1,4 +1,4 @@
-from enum import IntFlag
+from enum import IntFlag, Enum
 
 
 class ConnectionType(IntFlag):
@@ -55,3 +55,9 @@ class BatteryState(IntFlag):
     POWER_SUPPLY_STATUS_ERROR = 0xF
     POWER_SUPPLY_TEMP_OR_VOLTAGE_OUT_OF_RANGE = 0xA
     POWER_SUPPLY_STATUS_UNKNOWN = 0x0
+
+class TriggersEffects(Enum):
+    VIBRATION = (TriggerModes.Pulse_AB, [255, 3, 255, 255, 255, 63, 15])
+    WEAPON = (TriggerModes.Rigid_AB, [36, 0, 7, 0, 0, 0, 0])
+    RIGID = (TriggerModes.Rigid, [0, 255, 0, 0, 0, 0, 0])
+    OFF = (TriggerModes.Off, [0] * 7)
