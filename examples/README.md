@@ -1,18 +1,18 @@
 # Examples
 
-This folder contains some examples on applications for the library and its usage
+Install pydualsense, connect the controller, and list available examples from any directory:
 
-## leds.py
+```console
+python -m pip install pydualsense
+python -m pydualsense.examples --help
+```
 
-The leds.py shows you how you can interact and change the lights of the controller
+Run an example by name:
 
-## effects.py
+```console
+python -m pydualsense.examples read-controller
+```
 
-The effects.py show some effects of the controller
+You can also run each module directly, such as `python -m pydualsense.examples.read_controller`.
 
-## read_controller.py
-
-The read_controller.py display how you can access the button state of the controller
-
-## test_trigger_value.py
-The `test_trigger_value.py` show the left / right trigger analog value changing when press button (range from 0 to 255)
+The scripts in this folder are shortcuts for running the installed examples from a source checkout. The installed implementations live in `pydualsense.examples`.

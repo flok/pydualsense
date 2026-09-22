@@ -8,8 +8,9 @@ You can find the documentation at [docs](https://flok.github.io/pydualsense/)
 # Installation
 
 
-## Windows 
-Download [hidapi](https://github.com/libusb/hidapi/releases) and place the x64 .dll file into your Workspace. After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
+## Windows
+
+The Windows HIDAPI DLL is included with the package. Install pydualsense from [PyPI](https://pypi.org/project/pydualsense/):
 
 ```bash
 pip install --upgrade pydualsense
@@ -17,26 +18,14 @@ pip install --upgrade pydualsense
 
 ## Linux
 
-On Linux based system you first need to add a udev rule to let the user access the PS5 controller without requiring root privileges.
-
-```bash
-sudo cp 70-ps5-controller.rules /etc/udev/rules.d
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-Then install the hidapi through your package manager of your system.
-
-On an Ubuntu system the package ```libhidapi-dev``` is required.
+On Ubuntu, install HIDAPI and pydualsense, then install the udev rule so your user can access the controller without root privileges.
 
 ```bash
 sudo apt install libhidapi-dev
-```
-
-After that install the package from [pypi](https://pypi.org/project/pydualsense/). 
-
-```bash
 pip install --upgrade pydualsense
+sudo cp "$(python -c 'import pydualsense; print(pydualsense.__path__[0] + "/70-ps5-controller.rules")')" /etc/udev/rules.d/70-ps5-controller.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
 ```
 
 # usage
@@ -48,17 +37,14 @@ from pydualsense import pydualsense, TriggerModes
 def cross_pressed(state):
     print(state)
 
-ds = pydualsense() # open controller
-ds.init() # initialize controller
-
-ds.cross_pressed += cross_pressed
-ds.light.setColorI(255,0,0) # set touchpad color to red
-ds.triggerL.setMode(TriggerModes.Rigid)
-ds.triggerL.setForce(1, 255)
-ds.close() # closing the controller
+with pydualsense() as ds:
+    ds.cross_pressed += cross_pressed
+    ds.light.setColorI(255, 0, 0) # set touchpad color to red
+    ds.triggerL.setMode(TriggerModes.Rigid)
+    ds.triggerL.setForce(1, 255)
 ```
 
-See [examples](https://github.com/flok/pydualsense/tree/master/examples) or [examples docs](https://flok.github.io/pydualsense/examples.html) folder for some more ideas
+List and run examples after installation with `python -m pydualsense.examples --help`. See the [examples guide](https://flok.github.io/pydualsense/examples.html) for details.
 
 # Help wanted
 

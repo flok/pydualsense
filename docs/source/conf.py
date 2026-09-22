@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import List
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -22,7 +23,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.coverage', 'sphinx.ext.todo']
 
 templates_path = ['templates']
-exclude_patterns = []
+exclude_patterns: List[str] = []
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

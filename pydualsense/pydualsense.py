@@ -1,17 +1,20 @@
+from __future__ import annotations
+
 import logging
 import os
+import queue
 import sys
+import threading
+from copy import deepcopy
 from sys import platform
+from types import TracebackType
+from typing import Dict, List, Optional, Tuple, Type
 
 if platform.startswith("win32") and sys.version_info >= (3, 8):
     os.environ["PATH"] += os.pathsep + os.path.dirname(__file__)
 
 
-import threading
-from copy import deepcopy
-from typing import List, Tuple
-
-import hidapi  # type: ignore[import]
+import hidapi  # type: ignore[import-untyped]
 
 from .checksum import compute
 from .enums import (
@@ -23,12 +26,9 @@ from .enums import (
     PulseOptions,
     TriggerModes,
 )
-from .event_system import Event
+from .event_system import Event, EventCall, EventHandlers
 
-logger = logging.getLogger()
-FORMAT = "%(asctime)s %(message)s"
-logging.basicConfig(format=FORMAT)
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class pydualsense:  # noqa: N801
@@ -40,7 +40,7 @@ class pydualsense:  # noqa: N801
         initialise the library but dont connect to the controller. call :func:`init() <pydualsense.pydualsense.init>` to connect to the controller
 
         Args:
-            verbose (bool, optional): display verbose out (debug prints of input and output). Defaults to False.
+            verbose (bool, optional): enable debug log records from this library. Defaults to False.
         """
 
         self.verbose = verbose
@@ -51,7 +51,14 @@ class pydualsense:  # noqa: N801
         self.leftMotor = 0
         self.rightMotor = 0
 
-        self.last_states: DSState = None # type: ignore[assignment]
+        self.last_states: Optional[DSState] = None
+        self.states: Optional[List[int]] = None
+        # ponytail: bounded queue drops new events when handlers lag; coalesce state events if loss is unacceptable
+        self._event_queue: queue.Queue[EventCall] = queue.Queue(maxsize=256)
+        self._event_stopping = False
+        self._dropped_events = 0
+        self._event_thread: Optional[threading.Thread] = None
+        self._initialized = False
 
         self.register_available_events()
 
@@ -61,65 +68,68 @@ class pydualsense:  # noqa: N801
         """
 
         # button events
-        self.triangle_pressed = Event()
-        self.circle_pressed = Event()
-        self.cross_pressed = Event()
-        self.square_pressed = Event()
+        self.triangle_pressed = Event(dispatcher=self._queue_event)
+        self.circle_pressed = Event(dispatcher=self._queue_event)
+        self.cross_pressed = Event(dispatcher=self._queue_event)
+        self.square_pressed = Event(dispatcher=self._queue_event)
 
         # dpad events
         # TODO: add a event that sends the pressed key if any key is pressed
         # self.dpad_changed = Event()
-        self.dpad_up = Event()
-        self.dpad_down = Event()
-        self.dpad_left = Event()
-        self.dpad_right = Event()
+        self.dpad_up = Event(dispatcher=self._queue_event)
+        self.dpad_down = Event(dispatcher=self._queue_event)
+        self.dpad_left = Event(dispatcher=self._queue_event)
+        self.dpad_right = Event(dispatcher=self._queue_event)
 
         # joystick
-        self.left_joystick_changed = Event()
-        self.right_joystick_changed = Event()
+        self.left_joystick_changed = Event(dispatcher=self._queue_event)
+        self.right_joystick_changed = Event(dispatcher=self._queue_event)
 
         # trigger back buttons
-        self.r1_changed = Event()
-        self.r2_changed = Event()
-        self.r3_changed = Event()
+        self.r1_changed = Event(dispatcher=self._queue_event)
+        self.r2_changed = Event(dispatcher=self._queue_event)
+        self.r3_changed = Event(dispatcher=self._queue_event)
 
-        self.l1_changed = Event()
-        self.l2_changed = Event()
-        self.l3_changed = Event()
+        self.l1_changed = Event(dispatcher=self._queue_event)
+        self.l2_changed = Event(dispatcher=self._queue_event)
+        self.l3_changed = Event(dispatcher=self._queue_event)
 
         # Dualsense Edge specific buttons
         # Default to a disabled event
-        self.r4_changed = Event(False)
-        self.r5_changed = Event(False)
-        self.l4_changed = Event(False)
-        self.l5_changed = Event(False)
+        self.r4_changed = Event(False, self._queue_event)
+        self.r5_changed = Event(False, self._queue_event)
+        self.l4_changed = Event(False, self._queue_event)
+        self.l5_changed = Event(False, self._queue_event)
 
 
         # misc
-        self.ps_pressed = Event()
-        self.touch_pressed = Event()
-        self.microphone_pressed = Event()
-        self.share_pressed = Event()
-        self.option_pressed = Event()
+        self.ps_pressed = Event(dispatcher=self._queue_event)
+        self.touch_pressed = Event(dispatcher=self._queue_event)
+        self.microphone_pressed = Event(dispatcher=self._queue_event)
+        self.share_pressed = Event(dispatcher=self._queue_event)
+        self.option_pressed = Event(dispatcher=self._queue_event)
 
         # trackpad touch
         # handles 1 or 2 fingers
         # self.trackpad_frame_reported = Event()
 
         # gyrometer events
-        self.gyro_changed = Event()
+        self.gyro_changed = Event(dispatcher=self._queue_event)
 
-        self.accelerometer_changed = Event()
+        self.accelerometer_changed = Event(dispatcher=self._queue_event)
 
         # trigger analog
-        self.l2_value_changed = Event()
-        self.r2_value_changed = Event()
+        self.l2_value_changed = Event(dispatcher=self._queue_event)
+        self.r2_value_changed = Event(dispatcher=self._queue_event)
 
     def init(self) -> None:
         """
         initialize module and device states. Starts the sendReport background thread at the end
         """
-        self.device, self.is_edge = self.__find_device() # type: Tuple[hidapi.Device, bool]
+        if self._initialized:
+            raise RuntimeError("Controller is already initialized")
+
+        self.device, self.is_edge = self.__find_device()  # type: Tuple[hidapi.Device, bool]
         self.light = DSLight()  # control led light of ds
         self.audio = DSAudio()  # ds audio setting
         self.triggerL = DSTrigger()  # left trigger
@@ -131,14 +141,66 @@ class pydualsense:  # noqa: N801
             (self.l4_changed.available, self.l5_changed.available,
              self.r4_changed.available, self.r5_changed.available) = True, True, True, True
         self.battery = DSBattery()
-        self.conType = self.determineConnectionType()  # determine USB or BT connection
-        if self.conType is ConnectionType.ERROR:
-            raise Exception("Couldn't determine connection type")
+        try:
+            self.conType = self.determineConnectionType()  # determine USB or BT connection
+            if self.conType is ConnectionType.ERROR:
+                raise ConnectionError("Couldn't determine connection type")
+        except Exception:
+            self.device.close()
+            raise
+
+        self._event_queue = queue.Queue(maxsize=256)
+        self._event_stopping = False
+        self._dropped_events = 0
         self.ds_thread = True
         self.connected = True
-        self.report_thread = threading.Thread(target=self.sendReport)
-        self.report_thread.start()
         self.states = None
+        self._event_thread = threading.Thread(target=self._dispatch_events, daemon=True)
+        self.report_thread = threading.Thread(target=self.sendReport, daemon=True)
+        self._event_thread.start()
+        self.report_thread.start()
+        self._initialized = True
+
+    def _queue_event(
+        self,
+        handlers: EventHandlers,
+        args: Tuple[object, ...],
+        kwargs: Dict[str, object],
+    ) -> None:
+        try:
+            self._event_queue.put_nowait((handlers, args, kwargs))
+        except queue.Full:
+            self._dropped_events += 1
+            if self._dropped_events == 1:
+                logger.warning("Event queue is full; dropping controller events")
+
+    def _dispatch_events(self) -> None:
+        while not self._event_stopping:
+            try:
+                event_call = self._event_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+
+            handlers, args, kwargs = event_call
+            for handler in handlers:
+                if self._event_stopping:
+                    return
+                try:
+                    handler(*args, **kwargs)
+                except Exception:
+                    logger.exception("Controller event handler failed")
+
+    def __enter__(self) -> pydualsense:
+        self.init()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        self.close()
 
     def determineConnectionType(self) -> ConnectionType:
         """
@@ -154,7 +216,7 @@ class pydualsense:  # noqa: N801
             ConnectionType: Detected connection type of the controller.
         """
 
-        dummy_report = self.device.read(100)
+        dummy_report = self.device.read(100, timeout_ms=1000)
         input_report_length = len(dummy_report)
 
         if input_report_length == 64:
@@ -172,11 +234,24 @@ class pydualsense:  # noqa: N801
         """
         Stops the report thread and closes the HID device
         """
-        # TODO: reset trigger effect to default
+        if not self._initialized:
+            return
 
         self.ds_thread = False
         self.report_thread.join()
-        self.device.close()
+        try:
+            self.device.close()
+        finally:
+            self.connected = False
+            self._event_stopping = True
+            while True:
+                try:
+                    self._event_queue.get_nowait()
+                except queue.Empty:
+                    break
+            if self._event_thread is not None and threading.current_thread() is not self._event_thread:
+                self._event_thread.join()
+            self._initialized = False
 
     def __find_device(self) -> Tuple[hidapi.Device, bool]:
         """
@@ -193,7 +268,7 @@ class pydualsense:  # noqa: N801
         # TODO: detect connection mode, bluetooth has a bigger write buffer
         # TODO: implement multiple controllers working
         if sys.platform.startswith("win32"):
-            import pydualsense.hidguardian as hidguardian
+            from pydualsense import hidguardian
 
             if hidguardian.check_hide():
                 raise Exception(
@@ -254,7 +329,9 @@ class pydualsense:  # noqa: N801
         while self.ds_thread:
             try:
                 # read data from the input report of the controller
-                inReport = self.device.read(self.input_report_length)
+                inReport = self.device.read(self.input_report_length, timeout_ms=100)
+                if not inReport or len(inReport) != self.input_report_length:
+                    continue
                 if self.verbose:
                     logger.debug(inReport)
                 # decrypt the packet and bind the inputs
@@ -265,7 +342,7 @@ class pydualsense:  # noqa: N801
 
                 # write the report to the device
                 self.writeReport(outReport)
-            except IOError:
+            except OSError:
                 self.connected = False
                 break
                 
@@ -273,7 +350,7 @@ class pydualsense:  # noqa: N801
                 self.connected = False
                 break
 
-    def readInput(self, inReport : List[int]) -> None:
+    def readInput(self, inReport: List[int]) -> None:
         """
         read the input from the controller and assign the states
 
@@ -286,7 +363,7 @@ class pydualsense:  # noqa: N801
         # We drop that byte, so that the format matches up again.
         states: List[int] = list(inReport)[1:] if self.conType == ConnectionType.BT else list(inReport)
 
-        self.states: List[int] = states # type: ignore[assigment]
+        self.states = states
         # states 0 is always 1
         self.state.LX = states[1] - 128
         self.state.LY = states[2] - 128
@@ -332,41 +409,41 @@ class pydualsense:  # noqa: N801
             self.state.R5 = (misc2 & 0x80) != 0
 
         # trackpad touch
-        self.state.trackPadTouch0.ID = inReport[33] & 0x7F
-        self.state.trackPadTouch0.isActive = (inReport[33] & 0x80) == 0
-        self.state.trackPadTouch0.X = ((inReport[35] & 0x0F) << 8) | (inReport[34])
-        self.state.trackPadTouch0.Y = ((inReport[36]) << 4) | (
-            (inReport[35] & 0xF0) >> 4
+        self.state.trackPadTouch0.ID = states[33] & 0x7F
+        self.state.trackPadTouch0.isActive = (states[33] & 0x80) == 0
+        self.state.trackPadTouch0.X = ((states[35] & 0x0F) << 8) | (states[34])
+        self.state.trackPadTouch0.Y = ((states[36]) << 4) | (
+            (states[35] & 0xF0) >> 4
         )
 
         # trackpad touch
-        self.state.trackPadTouch1.ID = inReport[37] & 0x7F
-        self.state.trackPadTouch1.isActive = (inReport[37] & 0x80) == 0
-        self.state.trackPadTouch1.X = ((inReport[39] & 0x0F) << 8) | (inReport[38])
-        self.state.trackPadTouch1.Y = ((inReport[40]) << 4) | (
-            (inReport[39] & 0xF0) >> 4
+        self.state.trackPadTouch1.ID = states[37] & 0x7F
+        self.state.trackPadTouch1.isActive = (states[37] & 0x80) == 0
+        self.state.trackPadTouch1.X = ((states[39] & 0x0F) << 8) | (states[38])
+        self.state.trackPadTouch1.Y = ((states[40]) << 4) | (
+            (states[39] & 0xF0) >> 4
         )
 
         # accelerometer
         self.state.accelerometer.X = int.from_bytes(
-            ([inReport[16], inReport[17]]), byteorder="little", signed=True
+            ([states[16], states[17]]), byteorder="little", signed=True
         )
         self.state.accelerometer.Y = int.from_bytes(
-            ([inReport[18], inReport[19]]), byteorder="little", signed=True
+            ([states[18], states[19]]), byteorder="little", signed=True
         )
         self.state.accelerometer.Z = int.from_bytes(
-            ([inReport[20], inReport[21]]), byteorder="little", signed=True
+            ([states[20], states[21]]), byteorder="little", signed=True
         )
 
         # gyrometer
         self.state.gyro.Pitch = int.from_bytes(
-            ([inReport[22], inReport[23]]), byteorder="little", signed=True
+            ([states[22], states[23]]), byteorder="little", signed=True
         )
         self.state.gyro.Yaw = int.from_bytes(
-            ([inReport[24], inReport[25]]), byteorder="little", signed=True
+            ([states[24], states[25]]), byteorder="little", signed=True
         )
         self.state.gyro.Roll = int.from_bytes(
-            ([inReport[26], inReport[27]]), byteorder="little", signed=True
+            ([states[26], states[27]]), byteorder="little", signed=True
         )
 
         # from kit-nya
@@ -376,7 +453,7 @@ class pydualsense:  # noqa: N801
 
         # first call we dont have a "last state" so we create if with the first occurence
         if self.last_states is None:
-            self.last_states: DSState = deepcopy(self.state) # type: ignore[assignment]
+            self.last_states = deepcopy(self.state)
             return
 
         # send all events if neede
@@ -486,9 +563,7 @@ class pydualsense:  # noqa: N801
         copy current state into temp object to check next cycle if a change occuret
         and event trigger is needed
         """
-        self.last_states = deepcopy(
-            self.state
-        )  # copy current state into object to check next time
+        self.last_states = deepcopy(self.state)
 
         # TODO: control mouse with touchpad for fun as DS4Windows
 
@@ -699,7 +774,10 @@ class DSState:
             self.touchLeft,
         ) = False, False, False, False, False, False, False, False
         # Set to None to allow regular controllers to have these values unset
-        self.L4, self.L5, self.R4, self.R5 = None, None, None, None
+        self.L4: Optional[bool] = None
+        self.L5: Optional[bool] = None
+        self.R4: Optional[bool] = None
+        self.R5: Optional[bool] = None
         self.touchFinger1, self.touchFinger2 = False, False
         self.micBtn = False
         self.RX, self.RY, self.LX, self.LY = 128, 128, 128, 128

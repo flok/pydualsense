@@ -1,6 +1,5 @@
 # ref.: https://boilingsteam.com/the-dualsense-is-making-even-more-sense/
-# copy this file to /etc/udev/rules.d
-# reload udev rules with:
+# Copy this file to /etc/udev/rules.d, then reload udev rules with:
 #   udevadm control --reload-rules
 #   udevadm trigger
 

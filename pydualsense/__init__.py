@@ -8,3 +8,19 @@ from .pydualsense import pydualsense, DSLight, DSState, DSTouchpad, DSTrigger, D
 
 __version__ = "0.7.5"
 
+__all__ = [
+    "LedOptions",
+    "Brightness",
+    "PlayerID",
+    "PulseOptions",
+    "TriggerModes",
+    "Event",
+    "pydualsense",
+    "DSLight",
+    "DSState",
+    "DSTouchpad",
+    "DSTrigger",
+    "DSAudio",
+    "__version__",
+]
+

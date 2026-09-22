@@ -28,7 +28,10 @@ repository = "https://github.com/flok/pydualsense"
 authors = ["Florian (flok) K"]
 readme = "README.md"
 packages = [{include = "pydualsense"}]
-include = ["pydualsense/hidapi.dll"]
+include = [
+    { path = "pydualsense/hidapi.dll", format = ["sdist", "wheel"] },
+    { path = "pydualsense/70-ps5-controller.rules", format = ["sdist", "wheel"] },
+]
 keywords = ['ps5', 'controller', 'dualsense', 'pydualsense']
 
 [tool.poetry.dependencies]
@@ -93,7 +96,7 @@ line-length = 120
 
 [tool.mypy]
 strict = true
-files = "pydualsense"
+files = ["pydualsense", "examples", "docs/source/conf.py"]
 show_error_codes = true
 pretty = true
 warn_unused_ignores = true

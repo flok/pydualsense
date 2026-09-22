@@ -1,7 +1,16 @@
 Examples
 ========
 
-This pages displays some examples that on how the library can be used. All the examples can also be found inside the `examples` folder on the github repository.
+The examples ship with the package and can be run from any directory after installation. For example:
+
+.. code-block:: console
+
+   python -m pydualsense.examples --help
+   python -m pydualsense.examples read-controller
+
+The command-line modules are ``leds``, ``effects``, ``read_controller``, ``read_all_input_channels``, and ``read_trigger_values``. The source files are also available in the repository's ``examples`` folder.
+
+The following snippets show how the library can be used in your own application.
 
 .. code-block:: python
 
@@ -26,24 +35,17 @@ This pages displays some examples that on how the library can be used. All the e
     def gyro_changed(pitch, yaw, roll):
         print(f'{pitch}, {yaw}, {roll}')
 
-    # create dualsense
-    dualsense = pydualsense()
-    # find device and initialize
-    dualsense.init()
+    import time
 
-    # add events handler functions
-    dualsense.cross_pressed += cross_down
-    dualsense.circle_pressed += circle_down
-    dualsense.dpad_down += dpad_down
-    dualsense.left_joystick_changed += joystick
-    dualsense.gyro_changed += gyro_changed
+    with pydualsense() as dualsense:
+        dualsense.cross_pressed += cross_down
+        dualsense.circle_pressed += circle_down
+        dualsense.dpad_down += dpad_down
+        dualsense.left_joystick_changed += joystick
+        dualsense.gyro_changed += gyro_changed
 
-    # read controller state until R1 is pressed
-    while not dualsense.state.R1:
-        ...
-
-    # close device
-    dualsense.close()
+        while not dualsense.state.R1:
+            time.sleep(0.01)
 
 
 The above example demonstrates the newly added c# like event system that makes it possible to trigger an event for the inputs of the controller.
@@ -53,30 +55,18 @@ The above example demonstrates the newly added c# like event system that makes i
 
     from pydualsense import *
 
-    # get dualsense instance
-    dualsense = pydualsense()
-    # initialize controller and connect
-    dualsense.init()
+    import time
 
-    print('Trigger Effect demo started')
+    with pydualsense() as dualsense:
+        print('Trigger Effect demo started')
+        dualsense.setLeftMotor(255)
+        dualsense.setRightMotor(100)
+        dualsense.triggerL.setMode(TriggerModes.Rigid)
+        dualsense.triggerL.setForce(1, 255)
+        dualsense.triggerR.setMode(TriggerModes.Pulse_A)
+        dualsense.triggerR.setForce(0, 200)
+        dualsense.triggerR.setForce(1, 255)
+        dualsense.triggerR.setForce(2, 175)
 
-    # set left and right rumble motors
-    dualsense.setLeftMotor(255)
-    dualsense.setRightMotor(100)
-
-    # set left l2 trigger to Rigid and set index 1 to force 255
-    dualsense.triggerL.setMode(TriggerModes.Rigid)
-    dualsense.triggerL.setForce(1, 255)
-
-    # set left r2 trigger to Rigid
-    dualsense.triggerR.setMode(TriggerModes.Pulse_A)
-    dualsense.triggerR.setForce(0, 200)
-    dualsense.triggerR.setForce(1, 255)
-    dualsense.triggerR.setForce(2, 175)
-
-    # loop until r1 is pressed to feel effect
-    while not dualsense.state.R1:
-        ...
-
-    # terminate the thread for message and close the device
-    dualsense.close()
+        while not dualsense.state.R1:
+            time.sleep(0.01)
