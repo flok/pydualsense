@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.dirname(__file__))
 
-from .enums import LedOptions, Brightness, PlayerID, PulseOptions, TriggerModes # noqa : F401
+from .enums import LedOptions, Brightness, PlayerID, PulseOptions, TriggerEffects, TriggerModes # noqa : F401
 from .event_system import Event # noqa : F401
 from .pydualsense import pydualsense, DSLight, DSState, DSTouchpad, DSTrigger, DSAudio # noqa : F401
 
@@ -13,6 +13,7 @@ __all__ = [
     "Brightness",
     "PlayerID",
     "PulseOptions",
+    "TriggerEffects",
     "TriggerModes",
     "Event",
     "pydualsense",
