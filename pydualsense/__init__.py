@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(os.path.dirname(__file__))
 
-from .enums import Brightness, LedOptions, PlayerID, PulseOptions, TriggerModes
+from .enums import Brightness, LedOptions, PlayerID, PulseOptions, TriggerEffects, TriggerModes
 from .event_system import Event
 from .pydualsense import (
     ControllerInfo,
@@ -22,6 +22,12 @@ __all__ = [
     "Brightness",
     "ControllerInfo",
     "DSAudio",
+    "PlayerID",
+    "PulseOptions",
+    "TriggerEffects",
+    "TriggerModes",
+    "Event",
+    "pydualsense",
     "DSLight",
     "DSState",
     "DSTouchpad",
