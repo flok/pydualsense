@@ -1094,7 +1094,7 @@ class DSTrigger:
 
         self.mode = mode
 
-    def set_effect(self, effect: str) -> None:
+    def set_effect(self, effect: TriggerEffects) -> None:
         """
         Applies a preconfigured trigger effect.
 
@@ -1104,10 +1104,10 @@ class DSTrigger:
         Raises:
             TypeError: false TriggerEffects type
         """
-        if effect not in TriggerEffects:
+        if not isinstance(effect, TriggerEffects):
             raise TypeError("Trigger effect parameter needs to be of type `TriggerEffects`")
 
-        settings = TriggerEffects[effect]
+        settings = effect.value
         self.setMode(TriggerModes(settings[0]))
         for i, force in enumerate(settings[1:]):
             self.setForce(i, force)
