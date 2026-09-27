@@ -6,6 +6,7 @@ import queue
 import sys
 import threading
 from copy import deepcopy
+from dataclasses import dataclass
 from sys import platform
 from types import TracebackType
 from typing import Dict, List, Optional, Tuple, Type
@@ -32,11 +33,62 @@ from .event_system import Event, EventCall, EventHandlers
 logger = logging.getLogger(__name__)
 
 
+DUALSENSE_VID = 0x054C
+DUALSENSE_PIDS = (0x0CE6, 0x0DF2)
+
+
+@dataclass(frozen=True)
+class ControllerInfo:
+    """
+    Identifies a physical DualSense controller and the HID interface used to open it
+    """
+
+    interface: hidapi.DeviceInfo
+    serial_number: Optional[str]
+    is_edge: bool
+
+
+def discover_devices() -> List[ControllerInfo]:
+    """
+    Enumerate the connected DualSense controllers
+
+    Returns:
+        List[ControllerInfo]: one entry per detected controller
+    """
+    if sys.platform.startswith("win32"):
+        from pydualsense import hidguardian
+
+        if hidguardian.check_hide():
+            raise Exception(
+                "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
+            )
+
+    devices = hidapi.enumerate(vendor_id=DUALSENSE_VID)
+    controllers: List[ControllerInfo] = []
+    known_serials: List[str] = []
+    for device in devices:
+        if device.vendor_id != DUALSENSE_VID or device.product_id not in DUALSENSE_PIDS:
+            continue
+        # serial_number is absent on some configurations so entry count can exceed controller count in that case
+        if device.serial_number is not None:
+            if device.serial_number in known_serials:
+                continue
+            known_serials.append(device.serial_number)
+        controllers.append(
+            ControllerInfo(
+                interface=device,
+                serial_number=device.serial_number,
+                is_edge=device.product_id == 0x0DF2,
+            )
+        )
+    return controllers
+
+
 class pydualsense:  # noqa: N801
     OUTPUT_REPORT_USB = 0x02
     OUTPUT_REPORT_BT = 0x31
 
-    def __init__(self, verbose: bool = False) -> None:
+    def __init__(self, verbose: bool = False, device: Optional[ControllerInfo] = None) -> None:
         """
         initialise the library but dont connect to the controller. call :func:`init() <pydualsense.pydualsense.init>` to connect to the controller
 
@@ -45,6 +97,8 @@ class pydualsense:  # noqa: N801
         """
 
         self.verbose = verbose
+
+        self._device: Optional[ControllerInfo] = device
 
         if self.verbose:
             logger.setLevel(logging.DEBUG)
@@ -267,7 +321,6 @@ class pydualsense:  # noqa: N801
             bool: returns true if the device is a DualSense Edge.
         """
         # TODO: detect connection mode, bluetooth has a bigger write buffer
-        # TODO: implement multiple controllers working
         if sys.platform.startswith("win32"):
             from pydualsense import hidguardian
 
@@ -275,19 +328,18 @@ class pydualsense:  # noqa: N801
                 raise Exception(
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
-        detected_device: hidapi.Device = None
-        devices = hidapi.enumerate(vendor_id=0x054C)
-        for device in devices:
-            if device.vendor_id == 0x054C and device.product_id in (0x0CE6, 0x0DF2):
-                detected_device = device
-
-        if detected_device is None:
+        if self._device is not None:
+            return (
+                hidapi.Device(info=self._device.interface),
+                self._device.is_edge,
+            )
+        devices = discover_devices()
+        if not devices:
             raise Exception("No device detected")
-
-        dual_sense = hidapi.Device(
-            vendor_id=detected_device.vendor_id, product_id=detected_device.product_id
+        return (
+            hidapi.Device(info=devices[0].interface),
+            devices[0].is_edge,
         )
-        return dual_sense, detected_device.product_id == 0x0DF2
 
     def setLeftMotor(self, intensity: int) -> None:
         """
