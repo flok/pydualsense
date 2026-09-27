@@ -24,6 +24,7 @@ from .enums import (
     LedOptions,
     PlayerID,
     PulseOptions,
+    TriggerEffects,
     TriggerModes,
 )
 from .event_system import Event, EventCall, EventHandlers
@@ -1040,6 +1041,24 @@ class DSTrigger:
             raise TypeError("Trigger mode parameter needs to be of type `TriggerModes`")
 
         self.mode = mode
+
+    def set_effect(self, effect: str) -> None:
+        """
+        Applies a preconfigured trigger effect.
+
+        Args:
+            effect (TriggerEffects): preconfigured trigger effect
+
+        Raises:
+            TypeError: false TriggerEffects type
+        """
+        if effect not in TriggerEffects:
+            raise TypeError("Trigger effect parameter needs to be of type `TriggerEffects`")
+
+        settings = TriggerEffects[effect]
+        self.setMode(TriggerModes(settings[0]))
+        for i, force in enumerate(settings[1:]):
+            self.setForce(i, force)
 
 
 class DSGyro:
