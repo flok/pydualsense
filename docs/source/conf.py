@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from typing import List
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:

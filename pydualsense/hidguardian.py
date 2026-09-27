@@ -1,5 +1,5 @@
-import winreg
 import sys
+import winreg
 
 
 def check_hide() -> bool:

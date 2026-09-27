@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from sys import platform
 from types import TracebackType
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Set, Tuple, Type
 
 if platform.startswith("win32") and sys.version_info >= (3, 8):
     os.environ["PATH"] += os.pathsep + os.path.dirname(__file__)
@@ -33,6 +33,18 @@ from .event_system import Event, EventCall, EventHandlers
 logger = logging.getLogger(__name__)
 
 
+class PydualsenseError(Exception):
+    """Base exception for all pydualsense errors"""
+
+
+class HIDGuardianError(PydualsenseError):
+    """The controller is hidden by HIDGuardian"""
+
+
+class NoDeviceError(PydualsenseError):
+    """No DualSense device detected"""
+
+
 DUALSENSE_VID = 0x054C
 DUALSENSE_PIDS = (0x0CE6, 0x0DF2)
 
@@ -52,6 +64,9 @@ def discover_devices() -> List[ControllerInfo]:
     """
     Enumerate the connected DualSense controllers
 
+    Raises:
+        HIDGuardianError: the controller is hidden by HIDGuardian
+
     Returns:
         List[ControllerInfo]: one entry per detected controller
     """
@@ -59,7 +74,7 @@ def discover_devices() -> List[ControllerInfo]:
         from pydualsense import hidguardian
 
         if hidguardian.check_hide():
-            raise Exception(
+            raise HIDGuardianError(
                 "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
             )
 
@@ -112,6 +127,8 @@ class pydualsense:  # noqa: N801
         self._event_queue: queue.Queue[EventCall] = queue.Queue(maxsize=256)
         self._event_stopping = False
         self._dropped_events = 0
+        self._coalesce_pending: Dict[Event, Tuple[Tuple[object, ...], Dict[str, object]]] = {}
+        self._coalesce_inqueue: Set[Event] = set()
         self._event_thread: Optional[threading.Thread] = None
         self._initialized = False
 
@@ -119,7 +136,9 @@ class pydualsense:  # noqa: N801
 
     def register_available_events(self) -> None:
         """
-        register all available events that can be used for the controller
+        register all available events that can be used for the controller, including a
+        dpad_changed event that fires with the current up/down/left/right states when any
+        dpad key changes
         """
 
         # button events
@@ -129,8 +148,7 @@ class pydualsense:  # noqa: N801
         self.square_pressed = Event(dispatcher=self._queue_event)
 
         # dpad events
-        # TODO: add a event that sends the pressed key if any key is pressed
-        # self.dpad_changed = Event()
+        self.dpad_changed = Event(dispatcher=self._queue_event)
         self.dpad_up = Event(dispatcher=self._queue_event)
         self.dpad_down = Event(dispatcher=self._queue_event)
         self.dpad_left = Event(dispatcher=self._queue_event)
@@ -207,6 +225,8 @@ class pydualsense:  # noqa: N801
         self._event_queue = queue.Queue(maxsize=256)
         self._event_stopping = False
         self._dropped_events = 0
+        self._coalesce_pending = {}
+        self._coalesce_inqueue = set()
         self.ds_thread = True
         self.connected = True
         self.states = None
@@ -216,18 +236,49 @@ class pydualsense:  # noqa: N801
         self.report_thread.start()
         self._initialized = True
 
+    @property
+    def dropped_events(self) -> int:
+        """Number of controller events dropped from the bounded event queue because a handler lagged."""
+        return self._dropped_events
+
     def _queue_event(
         self,
+        event: Event,
         handlers: EventHandlers,
         args: Tuple[object, ...],
         kwargs: Dict[str, object],
     ) -> None:
+        if event.coalesce:
+            self._coalesce_pending[event] = (args, kwargs)
+            if event not in self._coalesce_inqueue:
+                try:
+                    self._event_queue.put_nowait(event)
+                    self._coalesce_inqueue.add(event)
+                except queue.Full:
+                    self._dropped_events += 1
+                    if self._dropped_events == 1:
+                        logger.warning("Event queue is full; dropping controller events")
+            return
         try:
             self._event_queue.put_nowait((handlers, args, kwargs))
         except queue.Full:
             self._dropped_events += 1
             if self._dropped_events == 1:
                 logger.warning("Event queue is full; dropping controller events")
+
+    def _invoke(
+        self,
+        handlers: EventHandlers,
+        args: Tuple[object, ...],
+        kwargs: Dict[str, object],
+    ) -> None:
+        for handler in handlers:
+            if self._event_stopping:
+                return
+            try:
+                handler(*args, **kwargs)
+            except Exception:
+                logger.exception("Controller event handler failed")
 
     def _dispatch_events(self) -> None:
         while not self._event_stopping:
@@ -236,14 +287,15 @@ class pydualsense:  # noqa: N801
             except queue.Empty:
                 continue
 
-            handlers, args, kwargs = event_call
-            for handler in handlers:
-                if self._event_stopping:
-                    return
-                try:
-                    handler(*args, **kwargs)
-                except Exception:
-                    logger.exception("Controller event handler failed")
+            if isinstance(event_call, Event):
+                self._coalesce_inqueue.discard(event_call)
+                handlers = tuple(event_call._event_handler)
+                args, kwargs = self._coalesce_pending[event_call]
+                del self._coalesce_pending[event_call]
+                self._invoke(handlers, args, kwargs)
+            else:
+                handlers, args, kwargs = event_call
+                self._invoke(handlers, args, kwargs)
 
     def __enter__(self) -> pydualsense:
         self.init()
@@ -306,6 +358,8 @@ class pydualsense:  # noqa: N801
                     break
             if self._event_thread is not None and threading.current_thread() is not self._event_thread:
                 self._event_thread.join()
+            self._coalesce_pending.clear()
+            self._coalesce_inqueue.clear()
             self._initialized = False
 
     def __find_device(self) -> Tuple[hidapi.Device, bool]:
@@ -313,8 +367,8 @@ class pydualsense:  # noqa: N801
         find HID dualsense device and open it
 
         Raises:
-            Exception: HIDGuardian detected
-            Exception: No device detected
+            HIDGuardianError: the controller is hidden by HIDGuardian
+            NoDeviceError: no DualSense device detected
 
         Returns:
             hid.Device: returns opened controller device
@@ -325,7 +379,7 @@ class pydualsense:  # noqa: N801
             from pydualsense import hidguardian
 
             if hidguardian.check_hide():
-                raise Exception(
+                raise HIDGuardianError(
                     "HIDGuardian detected. Delete the controller from HIDGuardian and restart PC to connect to controller"
                 )
         if self._device is not None:
@@ -335,7 +389,7 @@ class pydualsense:  # noqa: N801
             )
         devices = discover_devices()
         if not devices:
-            raise Exception("No device detected")
+            raise NoDeviceError("No device detected")
         return (
             hidapi.Device(info=devices[0].interface),
             devices[0].is_edge,
@@ -533,6 +587,19 @@ class pydualsense:  # noqa: N801
 
         if self.state.DpadUp != self.last_states.DpadUp:
             self.dpad_up(self.state.DpadUp)
+
+        if (
+            self.state.DpadUp != self.last_states.DpadUp
+            or self.state.DpadDown != self.last_states.DpadDown
+            or self.state.DpadLeft != self.last_states.DpadLeft
+            or self.state.DpadRight != self.last_states.DpadRight
+        ):
+            self.dpad_changed(
+                up=self.state.DpadUp,
+                down=self.state.DpadDown,
+                left=self.state.DpadLeft,
+                right=self.state.DpadRight,
+            )
 
         if self.state.LX != self.last_states.LX or self.state.LY != self.last_states.LY:
             self.left_joystick_changed(self.state.LX, self.state.LY)

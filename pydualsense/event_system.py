@@ -1,9 +1,5 @@
 from typing import Callable, Dict, List, Optional, Tuple
 
-EventHandlers = Tuple[Callable[..., object], ...]
-EventCall = Tuple[EventHandlers, Tuple[object, ...], Dict[str, object]]
-EventDispatcher = Callable[[EventHandlers, Tuple[object, ...], Dict[str, object]], None]
-
 
 class Event:
     """
@@ -14,6 +10,7 @@ class Event:
         self,
         available: bool = True,
         dispatcher: Optional[EventDispatcher] = None,
+        coalesce: bool = False,
     ) -> None:
         """
         initialise event system
@@ -21,6 +18,7 @@ class Event:
         self._event_handler: List[Callable[..., object]] = []
         self.available = available
         self._dispatcher = dispatcher
+        self.coalesce = coalesce
 
     def subscribe(self, fn: Callable[..., object]) -> "Event":
         """
@@ -78,8 +76,14 @@ class Event:
             raise ValueError("Event unavailable")
         handlers = tuple(self._event_handler)
         if self._dispatcher is not None:
-            self._dispatcher(handlers, args, kwargs)
+            self._dispatcher(self, handlers, args, kwargs)
             return
 
         for eventhandler in handlers:
             eventhandler(*args, **kwargs)
+
+
+# aliases defined after Event so EventDispatcher can reference it
+EventHandlers = Tuple[Callable[..., object], ...]
+EventCall = Tuple[EventHandlers, Tuple[object, ...], Dict[str, object]]
+EventDispatcher = Callable[[Event, EventHandlers, Tuple[object, ...], Dict[str, object]], None]

@@ -1,5 +1,6 @@
 import curses
 import time
+
 from pydualsense import *
 
 

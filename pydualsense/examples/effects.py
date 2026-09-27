@@ -1,6 +1,6 @@
 import time
 
-from pydualsense import pydualsense, TriggerEffects
+from pydualsense import TriggerEffects, pydualsense
 
 
 def main() -> None:
